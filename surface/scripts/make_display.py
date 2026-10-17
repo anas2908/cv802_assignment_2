@@ -26,7 +26,7 @@ a = ap.parse_args()
 def write(run: Path, V, F, VT, FT, img):
     with open(run / "display.mtl", "w") as f:
         f.write("newmtl material0\nKa 1 1 1\nKd 1 1 1\nKs 0 0 0\nmap_Kd display.jpg\n")
-    Image.fromarray(img).save(run / "display.jpg", quality=a.quality)
+    Image.fromarray(np.asarray(img).clip(0, 255).astype(np.uint8)).save(run / "display.jpg", quality=a.quality)
     with open(run / "display.obj", "w") as f:
         f.write("mtllib display.mtl\nusemtl material0\n")
         np.savetxt(f, V, fmt="v %.5f %.5f %.5f")
@@ -66,5 +66,6 @@ for r in a.runs:
     out[cov] = sample_texture(img, uv)
     tex = out.reshape(H, W, 3).clip(0, 255).astype(np.uint8)
     tex, _ = dilate_image(tex, cov.reshape(H, W), iters=8)
+    tex = np.asarray(tex).clip(0, 255).astype(np.uint8)   # dilate_image returns floats; JPEG needs 8-bit
     write(run, Vd, Fd, VTd, FTd, tex)
     print(f"{run.name}: {len(F)} -> {len(Fd)} faces, texture re-baked ({time.time() - t0:.0f}s)")

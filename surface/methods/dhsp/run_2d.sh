@@ -13,13 +13,25 @@ prog() { printf '{"percent": %d, "stage": "%s", "message": "%s"}' "$1" "$2" "$3"
 # without the viewer). Falls back to xatlas only if OptCuts fails; the method used is recorded in uv_methods.txt.
 optcuts_uv() { # optcuts_uv <in.obj> <out_uv.obj> [remesh_faces]
   local in="$1" out="$2" faces="${3:-0}"
-  local tmp="/tmp/cv802_optcuts_$(basename "${in}" .obj)"
+  local tmp="/tmp/cv802_optcuts_$(basename "${RUN}")_$(basename "${in}" .obj)"   # per run: parallel runs must not share it
+  local src="${in}"
   rm -rf "${tmp}"; mkdir -p "${tmp}"; cp "${in}" "${tmp}/m.obj"
   if [[ "${faces}" -gt 0 ]]; then
     # The 3D prior's surface is crumpled (about half of adjacent faces fold), and OptCuts does not converge on it.
     # Rebuild a clean watertight surface with Manifold (the tool DHSP already uses) and simplify, then flatten.
     "${TP}/Manifold/build/manifold" "${tmp}/m.obj" "${tmp}/m_man.obj" 20000 > /dev/null
     "${TP}/Manifold/build/simplify" -i "${tmp}/m_man.obj" -o "${tmp}/m.obj" -f "${faces}" > /dev/null
+    # simplification can leave zero-area triangles, which OptCuts rejects: drop them (and unused vertices)
+    "${BASE_PY}" - "${tmp}/m.obj" <<'PY'
+import sys, numpy as np, trimesh
+m = trimesh.load(sys.argv[1], process=False)
+n0 = len(m.faces)
+m.update_faces(m.nondegenerate_faces(height=1e-9)); m.update_faces(m.unique_faces()); m.remove_unreferenced_vertices()
+m.merge_vertices()
+m.export(sys.argv[1])
+print(f"cleaned remeshed mesh: {n0} -> {len(m.faces)} faces")
+PY
+    src="${tmp}/m.obj"   # the xatlas fallback must flatten the re-meshed surface too
     echo "$(basename "${out}"): remeshed to ${faces} faces (Manifold + simplify) before UV flattening" >> uv_methods.txt
   fi
   if [[ "${OPTCUTS_SKIP:-0}" != 1 ]] && ( cd "${tmp}" && timeout 7200 "${TP}/OptCuts/build/OptCuts_bin" 100 m.obj 0.999 1 0 4.15 1 0 > optcuts.log 2>&1 ); then
@@ -27,7 +39,7 @@ optcuts_uv() { # optcuts_uv <in.obj> <out_uv.obj> [remesh_faces]
     if [[ -n "${r}" ]]; then cp "${r}" "${out}"; echo "$(basename "${out}"): OptCuts" >> uv_methods.txt; return 0; fi
   fi
   echo "OptCuts failed for ${in} (see ${tmp}/optcuts.log); falling back to xatlas"
-  "${BASE_PY}" - "${in}" "${out}" <<'PY'
+  "${BASE_PY}" - "${src}" "${out}" <<'PY'
 import sys, numpy as np, xatlas
 from surface.common import io
 V, F, _ = io.read_mesh(sys.argv[1])
@@ -51,6 +63,11 @@ PY
 cd "${W}"; mkdir -p input output output_2d output_mesh input_f "datasets/result/${N}n/input"
 ln -sfn "${REPO}/util" util          # back_proj calls util/Manifold/build/simplify relative to the cwd
 
+if [[ "${DHSP_FROM_TEXTURE:-0}" == 1 ]]; then
+  # resume after the 3D refinement (README step 5 done): redo only UV flattening of the refined mesh + texture prior
+  [[ -s "${N}_f.obj" ]] || { echo "DHSP_FROM_TEXTURE=1 needs ${N}_f.obj"; exit 1; }
+  grep -v "^${N}_f_uv.obj" uv_methods.txt >| uv_methods.tmp 2>/dev/null || true; mv -f uv_methods.tmp uv_methods.txt
+else
 : >| uv_methods.txt
 prog 55 "UV flattening" "OptCuts on the 3D-prior mesh (README step 3)"
 if [[ "${DHSP_TEXTURE_ONLY:-0}" == 1 && "${DHSP_UV:-xatlas}" == xatlas ]]; then
@@ -74,6 +91,9 @@ prog 70 "3D self-prior refine" "train.py on the back-projected mesh (README step
 FINAL=$(ls -t "datasets/result/${N}n"/*.obj "datasets/result/${N}n/output"/*.obj 2>/dev/null | head -1)
 [[ -n "${FINAL}" ]] || { echo "refine produced no mesh"; exit 1; }
 cp "${FINAL}" "${N}_f.obj"
+fi
+fi   # DHSP_FROM_TEXTURE
+if [[ "${DHSP_TEXTURE_ONLY:-0}" != 1 ]]; then
 
 prog 78 "UV flattening" "OptCuts on the refined mesh -> ${N}_f_uv.obj"
 optcuts_uv "${N}_f.obj" "${N}_f_uv.obj" "${DHSP_REMESH_FACES_F:-${DHSP_REMESH_FACES:-0}}"

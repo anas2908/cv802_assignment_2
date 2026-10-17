@@ -44,7 +44,25 @@ baked from the point colours.
 
 ## Results
 
-<!-- TABLES -->
+| Method | VGGSfM (mask-cleaned) | MVS (COLMAP E10) | MVS (floaters removed) |
+|---|---|---|---|
+| Screened Poisson (own implementation) | 0.999 / 0.15% | 0.999 / 0.13% | 0.999 / 0.13% |
+| IER meshing (ECCV'20) | 0.998 / 0.19% | 1.000 / 0.12% | 1.000 / 0.12% |
+| Point2Mesh (SIGGRAPH'20) | 0.844 / 0.55% 🖨 | 0.133 / 3.98% 🖨 | 0.387 / 1.30% 🖨 |
+| MeshAnything V2 ('24) | 0.987 / 0.30% | 0.873 / 0.52% | 0.908 / 0.44% |
+| Deep Hybrid Self-Prior (ICCV'21) | 0.901 / 0.58% 🖨 | 0.900 / 0.64% | 0.916 / 0.63% |
+| NKSR (CVPR'23) * | 0.998 / 0.16% | 1.000 / 0.08% | 1.000 / 0.08% |
+| Shape As Points (NeurIPS'21) * | 0.998 / 0.19% 🖨 | 0.963 / 0.20% 🖨 | 0.948 / 0.24% 🖨 |
+| 2D Gaussian Splatting (SIGGRAPH'24) * | 0.972 / 0.29% | 0.938 / 0.31% | 0.928 / 0.34% |
+
+Cells: F-score at 1 % of the bounding-box diagonal ↑ / Chamfer-L1 as % of the diagonal ↓, best run per method, measured against that input point cloud. 🖨 = watertight (3D-printable). * = extra method beyond the course list.
+
+## Report and slides
+
+- One-page report (CVPR style): [`surface/docs/deliverables/CV802_SP2_one_page_report.pdf`](surface/docs/deliverables/CV802_SP2_one_page_report.pdf)
+- Presentation: [`surface/docs/deliverables/slides/CV802_SP2_surface_extraction.pptx`](surface/docs/deliverables/slides/CV802_SP2_surface_extraction.pptx)
+  ([PDF](surface/docs/deliverables/slides/CV802_SP2_surface_extraction.pdf))
+- Both are generated from the run metrics: `surface/docs/deliverables/build_all.sh`
 
 ## Experiments at a glance
 
@@ -54,7 +72,9 @@ baked from the point colours.
   marching-cubes path (≈ 0.99); several seeds and marching-cubes levels.
 - **Point2Mesh**: paper defaults, `--unoriented` (fixes flipped-normal pull, 0.65 → 0.84), 20k faces.
 - **DHSP**: the 3D prior alone is crumpled; OptCuts did not converge on it in 15 h; re-meshing first lets OptCuts
-  converge in seconds and the full 2D-refinement pipeline complete (clean surface, own texture).
+  converge in seconds and the full 2D-refinement pipeline complete (clean surface, own texture). On the MVS clouds
+  the full pipeline scores below its 3D prior (outliers become fins) and the final texture atlas falls back to xatlas
+  (the refined surface has genus 2).
 - **Texturing**: point-colour baking vs photo projection v1 / v2 (4K, exposure-balanced).
 - **3D printing**: watertight meshes exported as 180 mm STL + coloured OBJ with printability checks.
 

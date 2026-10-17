@@ -1,0 +1,284 @@
+{
+ "vggsfm": {
+  "label": "VGGSfM (mask-cleaned)",
+  "runs": [
+   {
+    "method_id": "dhsp",
+    "method": "Deep Hybrid Self-Prior (ICCV 2021) + photo texture",
+    "run": "dhsp-v5-lap1-remesh-optcuts-phototex2",
+    "faces": 6000,
+    "chamfer_pct": 0.5826564043416101,
+    "f1": 0.9008321412561995,
+    "f05": 0.4069564437535307,
+    "watertight": true,
+    "psnr": 17.69734974262332
+   },
+   {
+    "method_id": "ier",
+    "method": "IER meshing (ECCV 2020) + photo texture",
+    "run": "ier-v1-p12500-phototex2",
+    "faces": 17488,
+    "chamfer_pct": 0.18681492403922192,
+    "f1": 0.9981324750665553,
+    "f05": 0.9751590764968634,
+    "watertight": false,
+    "psnr": 15.299105967588865
+   },
+   {
+    "method_id": "meshanything",
+    "method": "MeshAnything v2 + photo texture",
+    "run": "meshanything-v2-mesh-mc7-greedy-phototex2",
+    "faces": 1435,
+    "chamfer_pct": 0.29526251322618224,
+    "f1": 0.9865012892675366,
+    "f05": 0.857807208331157,
+    "watertight": false,
+    "psnr": 18.88946980646665
+   },
+   {
+    "method_id": "nksr",
+    "method": "NKSR: Neural Kernel Surface Reconstruction (CVPR 2023) + photo texture",
+    "run": "nksr-v2-ours-d1-mise1-phototex2",
+    "faces": 2088273,
+    "chamfer_pct": 0.15623447899411286,
+    "f1": 0.9975022256035079,
+    "f05": 0.9730514287688179,
+    "watertight": false,
+    "psnr": 18.551559754204987
+   },
+   {
+    "method_id": "point2mesh",
+    "method": "Point2Mesh (SIGGRAPH 2020) + photo texture",
+    "run": "point2mesh-v3-paper-unoriented-phototex2",
+    "faces": 10000,
+    "chamfer_pct": 0.5529098105622986,
+    "f1": 0.8442322686241801,
+    "f05": 0.5302919912207371,
+    "watertight": true,
+    "psnr": 18.010221401196336
+   },
+   {
+    "method_id": "poisson",
+    "method": "Screened Poisson Surface Reconstruction (from scratch) + photo texture",
+    "run": "poisson-v2-r384-a4-t2-phototex2",
+    "faces": 1023553,
+    "chamfer_pct": 0.14856740389959947,
+    "f1": 0.9987834681626038,
+    "f05": 0.9875237458605219,
+    "watertight": false,
+    "psnr": 18.014404924548938
+   },
+   {
+    "method_id": "sap",
+    "method": "Shape As Points (NeurIPS 2021) + photo texture",
+    "run": "sap-v1-p100k-g256-phototex2",
+    "faces": 64168,
+    "chamfer_pct": 0.19497429801820532,
+    "f1": 0.9976583965796535,
+    "f05": 0.9606943699974104,
+    "watertight": true,
+    "psnr": 19.063777241297018
+   },
+   {
+    "method_id": "twodgs",
+    "method": "2D Gaussian Splatting (SIGGRAPH 2024) + photo texture",
+    "run": "twodgs-v2-30k-1600-phototex2",
+    "faces": 657447,
+    "chamfer_pct": 0.288566543653107,
+    "f1": 0.9718174066702748,
+    "f05": 0.863958155809313,
+    "watertight": false,
+    "psnr": 18.146580568500752
+   }
+  ],
+  "zip_mb": 53.9
+ },
+ "mvs": {
+  "label": "MVS (COLMAP E10)",
+  "runs": [
+   {
+    "method_id": "dhsp",
+    "method": "Deep Hybrid Self-Prior (ICCV 2021) + photo texture",
+    "run": "dhsp-v4-mvs-remesh-optcuts-phototex2",
+    "faces": 5998,
+    "chamfer_pct": 0.6359896572202998,
+    "f1": 0.9004901099409242,
+    "f05": 0.3775568232736081,
+    "watertight": false,
+    "psnr": 16.754532887129137
+   },
+   {
+    "method_id": "ier",
+    "method": "IER meshing (ECCV 2020) + photo texture",
+    "run": "ier-v1-p12500-phototex2",
+    "faces": 16355,
+    "chamfer_pct": 0.11996310070540067,
+    "f1": 0.9996028793810253,
+    "f05": 0.9940296745892687,
+    "watertight": false,
+    "psnr": 14.841902127890132
+   },
+   {
+    "method_id": "meshanything",
+    "method": "MeshAnything v2 + photo texture",
+    "run": "meshanything-v2-mesh-mc7-greedy-phototex2",
+    "faces": 1096,
+    "chamfer_pct": 0.5175712752895024,
+    "f1": 0.8733591280788887,
+    "f05": 0.6337473328541414,
+    "watertight": false,
+    "psnr": 17.37937516266636
+   },
+   {
+    "method_id": "nksr",
+    "method": "NKSR: Neural Kernel Surface Reconstruction (CVPR 2023) + photo texture",
+    "run": "nksr-v2-ours-d1-mise1-phototex2",
+    "faces": 3380222,
+    "chamfer_pct": 0.08042190859738352,
+    "f1": 0.9997459907316909,
+    "f05": 0.9954668745127929,
+    "watertight": false,
+    "psnr": 18.946330303140517
+   },
+   {
+    "method_id": "point2mesh",
+    "method": "Point2Mesh (SIGGRAPH 2020)",
+    "run": "point2mesh-v3-paper-unoriented",
+    "faces": 10000,
+    "chamfer_pct": 3.977093166616083,
+    "f1": 0.13328003309915093,
+    "f05": 0.0668816405831558,
+    "watertight": true,
+    "psnr": 12.756763915460771
+   },
+   {
+    "method_id": "poisson",
+    "method": "Screened Poisson Surface Reconstruction (from scratch) + photo texture",
+    "run": "poisson-v1-r256-a4-t2-phototex2",
+    "faces": 276830,
+    "chamfer_pct": 0.12665820316532295,
+    "f1": 0.9987172021243708,
+    "f05": 0.9617685478027602,
+    "watertight": false,
+    "psnr": 19.31704884400514
+   },
+   {
+    "method_id": "sap",
+    "method": "Shape As Points (NeurIPS 2021) + photo texture",
+    "run": "sap-v1-p100k-g256-phototex2",
+    "faces": 60392,
+    "chamfer_pct": 0.19673825452896151,
+    "f1": 0.9632472322918779,
+    "f05": 0.901561837859591,
+    "watertight": true,
+    "psnr": 19.014277167433676
+   },
+   {
+    "method_id": "twodgs",
+    "method": "2D Gaussian Splatting (SIGGRAPH 2024) + photo texture",
+    "run": "twodgs-v1-30k-phototex2",
+    "faces": 588070,
+    "chamfer_pct": 0.30799199859662874,
+    "f1": 0.9382938201328942,
+    "f05": 0.8167107327142089,
+    "watertight": false,
+    "psnr": 17.924443158367286
+   }
+  ],
+  "zip_mb": 50.2
+ },
+ "mvs_clean": {
+  "label": "MVS (floaters removed)",
+  "runs": [
+   {
+    "method_id": "dhsp",
+    "method": "Deep Hybrid Self-Prior (ICCV 2021) + photo texture",
+    "run": "dhsp-v4-mvsclean-remesh-optcuts-phototex2",
+    "faces": 6000,
+    "chamfer_pct": 0.6273576375831462,
+    "f1": 0.9160137070904816,
+    "f05": 0.3809520500185575,
+    "watertight": false,
+    "psnr": 17.227588341329405
+   },
+   {
+    "method_id": "ier",
+    "method": "IER meshing (ECCV 2020) + photo texture",
+    "run": "ier-v1-p12500-phototex2",
+    "faces": 16745,
+    "chamfer_pct": 0.1230337240406885,
+    "f1": 0.9998100438541999,
+    "f05": 0.9919584453006467,
+    "watertight": false,
+    "psnr": 14.913459138910113
+   },
+   {
+    "method_id": "meshanything",
+    "method": "MeshAnything v2 + photo texture",
+    "run": "meshanything-v2-wt384-mc7-phototex2",
+    "faces": 856,
+    "chamfer_pct": 0.4381775332145493,
+    "f1": 0.9083132035406624,
+    "f05": 0.7138556138605606,
+    "watertight": false,
+    "psnr": 18.116938930561254
+   },
+   {
+    "method_id": "nksr",
+    "method": "NKSR: Neural Kernel Surface Reconstruction (CVPR 2023) + photo texture",
+    "run": "nksr-v2-ours-d1-mise1-phototex2",
+    "faces": 3662458,
+    "chamfer_pct": 0.08010127326792867,
+    "f1": 0.9999211696836345,
+    "f05": 0.9962184777034638,
+    "watertight": false,
+    "psnr": 18.884639292751583
+   },
+   {
+    "method_id": "point2mesh",
+    "method": "Point2Mesh (SIGGRAPH 2020) + photo texture",
+    "run": "point2mesh-v3-paper-unoriented-phototex2",
+    "faces": 10000,
+    "chamfer_pct": 1.297530373358291,
+    "f1": 0.3866866360049863,
+    "f05": 0.20863566464686514,
+    "watertight": true,
+    "psnr": 15.072039336860502
+   },
+   {
+    "method_id": "poisson",
+    "method": "Screened Poisson Surface Reconstruction (from scratch) + photo texture",
+    "run": "poisson-v1-r256-a4-t2-phototex2",
+    "faces": 286978,
+    "chamfer_pct": 0.12711354302775343,
+    "f1": 0.999039211475206,
+    "f05": 0.9609012836827733,
+    "watertight": false,
+    "psnr": 19.314257118657988
+   },
+   {
+    "method_id": "sap",
+    "method": "Shape As Points (NeurIPS 2021) + photo texture",
+    "run": "sap-v1-p100k-g256-phototex2",
+    "faces": 56024,
+    "chamfer_pct": 0.23913682171941286,
+    "f1": 0.9478392148720778,
+    "f05": 0.8857696713467972,
+    "watertight": true,
+    "psnr": 18.86293471545883
+   },
+   {
+    "method_id": "twodgs",
+    "method": "2D Gaussian Splatting (SIGGRAPH 2024) + photo texture",
+    "run": "twodgs-v1-30k-phototex2",
+    "faces": 583765,
+    "chamfer_pct": 0.33629248959469143,
+    "f1": 0.9279695563001292,
+    "f05": 0.8119267655400902,
+    "watertight": false,
+    "psnr": 17.95191383992554
+   }
+  ],
+  "zip_mb": 51.8
+ }
+}
