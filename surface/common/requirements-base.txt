@@ -1,0 +1,9 @@
+# Shared base environment for Sub-project 2 (DATA/envs/base, Python 3.11).
+# torch comes from the cu121 index (installed separately by setup_base_env.sh).
+numpy==1.26.4
+scipy==1.13.1
+trimesh==4.4.9
+xatlas==0.0.9
+pillow==10.4.0
+plyfile==1.1
+pytest==8.3.3

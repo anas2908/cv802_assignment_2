@@ -1,0 +1,3 @@
+{"method_name": "Shape As Points (NeurIPS 2021, extra)", "paper": "Peng et al., Shape As Points: A Differentiable Poisson Solver, NeurIPS 2021",
+ "description": "Extra method beyond the slides: optimises an oriented point set through a differentiable (spectral) Poisson solver; watertight mesh.",
+ "default_run_args": ["--points", "100000", "--grid", "256"], "finalize_args": ["--color-source", "points"], "expected_minutes": 15, "gpu": true}

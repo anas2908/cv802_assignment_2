@@ -1,0 +1,3 @@
+{"method_name": "Deep Hybrid Self-Prior (ICCV 2021)", "paper": "Wei et al., Deep Hybrid Self-Prior for Full 3D Mesh Generation, ICCV 2021",
+ "description": "Official hybrid 3D (mesh CNN) + 2D (UV image) self-priors optimised on this cloud only, recovering shape and colour.",
+ "default_run_args": ["--steps", "2000", "--epochs", "4"], "finalize_args": ["--color-source", "vertex"], "expected_minutes": 90, "gpu": true}

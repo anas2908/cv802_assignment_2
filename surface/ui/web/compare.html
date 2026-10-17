@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CV802 Method Comparison</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="eyebrow">CV802 · Sub-project 2</div>
+    <h1>Compare</h1>
+    <p class="intro">All completed runs, evaluated against the same input cloud (138,677 VGGSfM points). Green = best in the column.</p>
+    <nav class="nav"><a href="/">Dashboard</a><a href="/viewer">Mesh viewer</a><a class="active" href="/compare">Compare</a></nav>
+    <label class="subject-option"><input type="checkbox" id="best-only" checked> Best run per method only</label>
+    <details open>
+      <summary>Metric definitions</summary>
+      <p class="small"><strong>Chamfer</strong>: mean of mesh→points and points→mesh distance, as % of the input bounding-box diagonal (lower is better).</p>
+      <p class="small"><strong>F-score @τ</strong>: harmonic mean of precision (mesh samples within τ of a point) and recall (points within τ of the mesh), τ = 0.5 % / 1 % of the diagonal.</p>
+      <p class="small"><strong>Colour PSNR</strong>: texture sampled at each input point's closest surface point vs that point's RGB.</p>
+    </details>
+  </aside>
+  <main class="main">
+    <h2 class="title">Methods side by side (front view)</h2>
+    <div class="strip" id="strip"></div>
+    <h2 class="title">Metrics</h2>
+    <div class="table-wrap"><table class="compare" id="table"><tr><td>Loading…</td></tr></table></div>
+  </main>
+  <script src="/static/common.js"></script>
+  <script>
+  "use strict";
+  const {esc, getJSON, num} = window.CV802;
+  const cols = [["chamfer_pct", "Chamfer % diag ↓", -1, 3], ["fscore_1", "F@1% ↑", 1, 3], ["fscore_05", "F@0.5% ↑", 1, 3],
+    ["normal_consistency", "Normal cons. ↑", 1, 3], ["psnr", "Colour PSNR ↑", 1, 1], ["faces", "Faces", 0, 0],
+    ["watertight", "Watertight", 0, 0], ["components", "Components", 0, 0], ["runtime_s", "Time (s)", 0, 0]];
+  let runs = [];
+  function draw() {
+    let rows = runs;
+    if (document.querySelector("#best-only").checked) {
+      const best = {};
+      runs.forEach((r) => { const b = best[r.method_id]; if (!b || (r.headline?.fscore_1 ?? -1) > (b.headline?.fscore_1 ?? -1)) best[r.method_id] = r; });
+      rows = Object.values(best);
+    }
+    rows = rows.slice().sort((a, b) => (b.headline?.fscore_1 ?? -1) - (a.headline?.fscore_1 ?? -1));
+    const bestVal = {};
+    cols.forEach(([k, , dir]) => { if (!dir) return; const v = rows.map((r) => r.headline?.[k]).filter((x) => typeof x === "number"); if (v.length) bestVal[k] = dir > 0 ? Math.max(...v) : Math.min(...v); });
+    document.querySelector("#table").innerHTML = `<tr><th class="left">Result</th><th></th>${cols.map((c) => `<th>${c[1]}</th>`).join("")}</tr>` + rows.map((r) => {
+      const h = r.headline || {};
+      return `<tr><td class="left"><strong>${esc(r.method_name)}</strong><br><span class="small mono">${esc(r.run_id)}</span></td>
+        <td>${r.thumb ? `<a href="/viewer?run=${encodeURIComponent(r.key)}"><img src="${r.thumb}" alt=""></a>` : ""}</td>
+        ${cols.map(([k, , dir, d]) => `<td class="${dir && h[k] === bestVal[k] ? "best" : ""}">${num(h[k], d)}</td>`).join("")}</tr>`;
+    }).join("");
+    document.querySelector("#strip").innerHTML = rows.map((r) => `<figure><a href="/viewer?run=${encodeURIComponent(r.key)}"><img src="${r.thumb}" alt=""></a>
+      <figcaption>${esc(r.method_name)}<br><span class="small">F@1% ${num(r.headline?.fscore_1)}</span></figcaption></figure>`).join("");
+  }
+  document.querySelector("#best-only").addEventListener("change", draw);
+  getJSON("/api/runs").then((d) => { runs = d.runs || []; draw(); }).catch((e) => { document.querySelector("#table").innerHTML = `<tr><td>${esc(e.message)}</td></tr>`; });
+  </script>
+<script>
+/* dataset banner: which point cloud these results were reconstructed from */
+fetch("/api/config", {cache: "no-store"}).then((r) => r.json()).then((c) => {
+  c.dataset = c.dataset || (c.input && c.input.dataset); if (!c.dataset) return;
+  const mvs = /mvs/i.test(c.dataset);
+  const b = document.createElement("div");
+  b.textContent = "Input point cloud: " + c.dataset;
+  b.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:50;padding:5px 12px;font:700 13px system-ui;text-align:center;" +
+    "color:#fff;background:" + (mvs ? "#7a3fb0" : "#17674f") + ";letter-spacing:.02em";
+  document.body.appendChild(b); document.body.style.paddingTop = "26px";
+  const e = document.querySelector(".eyebrow"); if (e) e.textContent += mvs ? " · MVS input" : " · VGGSfM input";
+  document.title = (mvs ? "[MVS] " : "[VGGSfM] ") + document.title;
+}).catch(() => {});
+</script>
+</body>
+</html>

@@ -1,0 +1,3 @@
+{"method_name": "MeshAnything (V1/V2)", "paper": "Chen et al., MeshAnything: Artist-Created Mesh Generation with Autoregressive Transformers, 2024",
+ "description": "Official pretrained autoregressive transformer turns a dense mesh of our scan (via the authors' --mc preprocessing) into a low-poly artist mesh; texture baked from point colours.",
+ "default_run_args": ["--version", "v2", "--input", "mesh", "--mc-level", "7"], "finalize_args": ["--color-source", "points"], "expected_minutes": 3, "gpu": true}

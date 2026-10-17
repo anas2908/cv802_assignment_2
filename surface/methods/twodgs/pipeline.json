@@ -1,0 +1,3 @@
+{"method_name": "2D Gaussian Splatting (SIGGRAPH 2024, extra)", "paper": "Huang et al., 2D Gaussian Splatting for Geometrically Accurate Radiance Fields, SIGGRAPH 2024",
+ "description": "Extra method beyond the slides: surfel Gaussians optimised on the photos (masked, initialised from our points), mesh from TSDF fusion of rendered depth.",
+ "default_run_args": [], "finalize_args": ["--color-source", "vertex"], "expected_minutes": 40, "gpu": true}

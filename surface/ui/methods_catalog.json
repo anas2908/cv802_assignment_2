@@ -1,0 +1,60 @@
+{
+ "_comment": "Fallback display metadata for the dashboard. surface/methods/<id>/pipeline.json and each run's method_info.json take precedence. expected_minutes here are rough UI estimates, not measurements.",
+ "methods": [
+  {
+   "id": "poisson",
+   "name": "Poisson Surface Reconstruction",
+   "paper": "Kazhdan, Bolitho, Hoppe. Poisson Surface Reconstruction. SGP 2006",
+   "paper_url": "https://hhoppe.com/poissonrecon.pdf",
+   "description": "Solves a Poisson equation for an indicator function whose gradient matches the oriented point normals, then extracts its iso-surface (own implementation, no library API).",
+   "colour": "shape only; texture baked from the input points",
+   "expected_minutes": 5,
+   "gpu": false
+  },
+  {
+   "id": "ier",
+   "name": "IER meshing (intrinsic-extrinsic ratio)",
+   "paper": "Liu, Zhang, Su. Meshing Point Clouds with Predicted Intrinsic-Extrinsic Ratio Guidance. ECCV 2020",
+   "paper_url": "https://arxiv.org/abs/2007.09267",
+   "description": "Proposes candidate triangles from k-nearest neighbours; a network predicts each candidate's intrinsic-extrinsic (geodesic/Euclidean) ratio, and the best-scoring non-conflicting triangles are kept.",
+   "colour": "shape only; texture baked from the input points",
+   "expected_minutes": 20,
+   "gpu": true
+  },
+  {
+   "id": "point2mesh",
+   "name": "Point2Mesh",
+   "paper": "Hanocka, Metzer, Giryes, Cohen-Or. Point2Mesh: A Self-Prior for Deformable Meshes. SIGGRAPH 2020",
+   "paper_url": "https://arxiv.org/abs/2005.11084",
+   "description": "Deforms an initial coarse mesh with a MeshCNN self-prior optimised only on this cloud (no training set), with progressive upsampling.",
+   "colour": "shape only; texture baked from the input points",
+   "expected_minutes": 40,
+   "gpu": true
+  },
+  {
+   "id": "meshanything",
+   "name": "MeshAnything",
+   "paper": "Chen et al. MeshAnything: Artist-Created Mesh Generation with Autoregressive Transformers. ICLR 2025 (arXiv 2406.10163)",
+   "paper_url": "https://arxiv.org/abs/2406.10163",
+   "description": "A pretrained autoregressive transformer conditioned on a point-cloud encoding emits a compact, artist-style low-poly mesh face by face.",
+   "colour": "shape only; texture baked from the input points",
+   "expected_minutes": 10,
+   "gpu": true
+  },
+  {
+   "id": "dhsp",
+   "name": "Deep Hybrid Self-Prior (DHSP)",
+   "paper": "Wei, Chen, Fu, Cui, Zhang. Deep Hybrid Self-Prior for Full 3D Mesh Generation. ICCV 2021",
+   "paper_url": "https://arxiv.org/abs/2108.08017",
+   "description": "Self-supervised: a 3D graph-convolution self-prior deforms the mesh while a 2D UV-atlas CNN self-prior refines geometry and predicts colour, so shape and colour come from the method itself.",
+   "colour": "shape and colour predicted by the method",
+   "expected_minutes": 45,
+   "gpu": true
+  }
+ ],
+ "input_frame": {
+  "up": "-y",
+  "front": "-z",
+  "evidence": "Head (hair) is towards -Y and the shoes towards +Y; the jersey's 'SPAIN' name and number (printed on the back of a football shirt) face +Z, so the person faces -Z."
+ }
+}

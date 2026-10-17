@@ -1,0 +1,297 @@
+{
+  "camera_source": {
+    "camera_count": 125,
+    "camera_models": [
+      "SIMPLE_RADIAL"
+    ],
+    "manifest": {
+      "bytes": 302633,
+      "path": "/l/users/anas.khan/cv_802_ass1/vggsfm/outputs/light-shirt-vggsfm-v1-colmap-consistent-v1/manifest.json",
+      "sha256": "3c794965669742d7ed7e6ae44b135c90de7f0919cb5f885be0365c0d7c601574"
+    },
+    "model_path": "/l/users/anas.khan/cv_802_ass1/vggsfm/outputs/light-shirt-vggsfm-v1-colmap-consistent-v1/colmap/sparse/0",
+    "radial_distortion_applied_by_camera_img_from_cam": true,
+    "receipt": {
+      "bytes": 300755,
+      "path": "/l/users/anas.khan/cv_802_ass1/vggsfm/outputs/light-shirt-vggsfm-v1-colmap-consistent-v1/review_export_receipt.json",
+      "sha256": "8eb9b1851ec89fe0d2d955147b973bbf854f50d176f2ea20e0ed3e70d154f495"
+    },
+    "registered_image_count": 125,
+    "role": "independently estimated VGGSfM cameras with original image dimensions",
+    "run_id": "light-shirt-vggsfm-v1-colmap-consistent-v1"
+  },
+  "created_at": "2026-09-19T18:24:22+00:00",
+  "execution": {
+    "cuda_visible_devices": "",
+    "pycolmap_version": "3.10.0",
+    "python": "/l/users/anas.khan/cv_802_ass1/vggsfm/envs/vggsfm/bin/python",
+    "slurm_job_id": "264198",
+    "slurm_step_id": "151"
+  },
+  "files": [
+    {
+      "bytes": 2080414,
+      "path": "point_cloud.ply",
+      "sha256": "ca1c35a7dec46aaa7aeb614c3ce79917dbb6b095222a141120cf7ade8412a04f"
+    }
+  ],
+  "inference_rerun": false,
+  "manifest_kind": "derived_mask_projection_cleanup",
+  "mask_input": {
+    "mask_count": 125,
+    "native_original_image_dimensions": true,
+    "polarity": "uint8 value >=128 is person foreground",
+    "receipt": {
+      "bytes": 46214,
+      "path": "/l/users/anas.khan/cv_802_ass1/vggsfm/inputs/light_shirt_cleanup_masks/receipt.json",
+      "sha256": "086eff976073d6fdfa1477d3ec71a867911c64d51f6ab45755991112d06fbefd"
+    },
+    "rows_sha256": "b95907a7c99c177d33f8efb1d993564cdeccfe6fb77322e316da26145265436b"
+  },
+  "method": "derived_vggsfm_native_mask_projection_consensus",
+  "output_files": [
+    {
+      "bytes": 2080414,
+      "path": "/l/users/anas.khan/cv_802_ass1/vggsfm/outputs/light-shirt-vggsfm-v1-mask-projection-clean-v1/point_cloud.ply",
+      "sha256": "ca1c35a7dec46aaa7aeb614c3ce79917dbb6b095222a141120cf7ade8412a04f"
+    }
+  ],
+  "point_cloud": {
+    "all_finite_xyz": true,
+    "bounds_max": [
+      0.4058292713397508,
+      1.9494583366225136,
+      1.0656790796127449
+    ],
+    "bounds_min": [
+      -0.28513528216791656,
+      -0.47695565863245365,
+      0.08430266380304335
+    ],
+    "has_rgb": true,
+    "ply_format": "binary_little_endian",
+    "point_count": 138677,
+    "point_ids_sha256": "6b768209484c42dd67f702e4b30b42d493617cc9560120d23c8b20ce61e8b8a6",
+    "selection_rule": {
+      "coordinates": "VGGSfM world XYZ -> cam_from_world -> normalized xy -> distorted original-image pixels via camera.img_from_cam",
+      "foreground": "native uint8 person mask value >= 128",
+      "interpretation": "Projection-based consensus across usable cameras. Trackless extra points have no true visibility, so usable projection is not historical track support.",
+      "minimum_foreground_agreement": 0.9,
+      "minimum_usable_views": 6,
+      "nearest_pixel": "NumPy rint",
+      "occlusion_test": false,
+      "usable": "finite camera coordinate, positive Z, finite projected pixel, nearest-pixel coordinate in camera/mask bounds"
+    },
+    "source_ply_records_copied_byte_identically": true,
+    "tracked_point_count": 4026,
+    "trackless_point_count": 134651,
+    "xyz_rgb_unchanged": true
+  },
+  "point_count_conservation": true,
+  "projection_image_count": 125,
+  "projection_rows_sha256": "e6c812e53b0e3fb9d71aa19af96ac1b359dae3981d52cdeea1d48637c4cd6252",
+  "projection_rule": {
+    "coordinates": "VGGSfM world XYZ -> cam_from_world -> normalized xy -> distorted original-image pixels via camera.img_from_cam",
+    "foreground": "native uint8 person mask value >= 128",
+    "interpretation": "Projection-based consensus across usable cameras. Trackless extra points have no true visibility, so usable projection is not historical track support.",
+    "minimum_foreground_agreement": 0.9,
+    "minimum_usable_views": 6,
+    "nearest_pixel": "NumPy rint",
+    "occlusion_test": false,
+    "usable": "finite camera coordinate, positive Z, finite projected pixel, nearest-pixel coordinate in camera/mask bounds"
+  },
+  "raw_output_replaced": false,
+  "removed_point_count": 275531,
+  "retained_point_count": 138677,
+  "roles": {
+    "cleaned_derived": "/l/users/anas.khan/cv_802_ass1/vggsfm/outputs/light-shirt-vggsfm-v1-mask-projection-clean-v1/point_cloud.ply",
+    "raw_full": "/l/users/anas.khan/cv_802_ass1/vggsfm/outputs/light-shirt-vggsfm-v1/point_cloud.ply"
+  },
+  "run_id": "light-shirt-vggsfm-v1-mask-projection-clean-v1",
+  "schema_version": 1,
+  "selected_point_cloud": {
+    "all_finite_xyz": true,
+    "bounds_max": [
+      0.4058292713397508,
+      1.9494583366225136,
+      1.0656790796127449
+    ],
+    "bounds_min": [
+      -0.28513528216791656,
+      -0.47695565863245365,
+      0.08430266380304335
+    ],
+    "has_rgb": true,
+    "ply_format": "binary_little_endian",
+    "point_count": 138677,
+    "point_ids_sha256": "6b768209484c42dd67f702e4b30b42d493617cc9560120d23c8b20ce61e8b8a6",
+    "source_ply_records_copied_byte_identically": true,
+    "tracked_point_count": 4026,
+    "trackless_point_count": 134651,
+    "xyz_rgb_unchanged": true
+  },
+  "source_files_after": [
+    {
+      "bytes": 149980,
+      "path": "/l/users/anas.khan/cv_802_ass1/vggsfm/outputs/light-shirt-vggsfm-v1/manifest.json",
+      "sha256": "5163daa8030e461d499266ca5bf3cfaa4fd8cc42e7fe532425bddebb27e55f64"
+    },
+    {
+      "bytes": 6213355,
+      "path": "/l/users/anas.khan/cv_802_ass1/vggsfm/outputs/light-shirt-vggsfm-v1/point_cloud.ply",
+      "sha256": "a74cc2381f8177e2067fbb62bbe615c042ab45863c5380a9ab46e81aa7261a87"
+    },
+    {
+      "bytes": 7008,
+      "path": "/l/users/anas.khan/cv_802_ass1/vggsfm/outputs/light-shirt-vggsfm-v1/colmap/sparse/0/cameras.bin",
+      "sha256": "5243d879a8e4adc1309459c9561e0aceb6e5f5aa72f43da6c71f9d5162e8f8b1"
+    },
+    {
+      "bytes": 10542330,
+      "path": "/l/users/anas.khan/cv_802_ass1/vggsfm/outputs/light-shirt-vggsfm-v1/colmap/sparse/0/images.bin",
+      "sha256": "8a83f28a0f905a26f85459a6d617d52303aa28a9097f1e97410d208e9665da6c"
+    },
+    {
+      "bytes": 24633856,
+      "path": "/l/users/anas.khan/cv_802_ass1/vggsfm/outputs/light-shirt-vggsfm-v1/colmap/sparse/0/points3D.bin",
+      "sha256": "0062dafd3dd3bd175e771ff467406acda0d3a1ee3f9bb516a3ed98d861949515"
+    },
+    {
+      "bytes": 302633,
+      "path": "/l/users/anas.khan/cv_802_ass1/vggsfm/outputs/light-shirt-vggsfm-v1-colmap-consistent-v1/manifest.json",
+      "sha256": "3c794965669742d7ed7e6ae44b135c90de7f0919cb5f885be0365c0d7c601574"
+    },
+    {
+      "bytes": 300755,
+      "path": "/l/users/anas.khan/cv_802_ass1/vggsfm/outputs/light-shirt-vggsfm-v1-colmap-consistent-v1/review_export_receipt.json",
+      "sha256": "8eb9b1851ec89fe0d2d955147b973bbf854f50d176f2ea20e0ed3e70d154f495"
+    },
+    {
+      "bytes": 7008,
+      "path": "/l/users/anas.khan/cv_802_ass1/vggsfm/outputs/light-shirt-vggsfm-v1-colmap-consistent-v1/colmap/sparse/0/cameras.bin",
+      "sha256": "96892bd9f4e32769d82e57604dbf7e63f56b3c6e511f418b9ba3a54bd9ed7925"
+    },
+    {
+      "bytes": 10542330,
+      "path": "/l/users/anas.khan/cv_802_ass1/vggsfm/outputs/light-shirt-vggsfm-v1-colmap-consistent-v1/colmap/sparse/0/images.bin",
+      "sha256": "9d99d803447cccc3e78128f28a16a6fdbeb9392358aad33932cf912ba64a66bf"
+    },
+    {
+      "bytes": 24633856,
+      "path": "/l/users/anas.khan/cv_802_ass1/vggsfm/outputs/light-shirt-vggsfm-v1-colmap-consistent-v1/colmap/sparse/0/points3D.bin",
+      "sha256": "b6f747bcf95856f52318c348a49eed2564d2bd9ee1a6564c114375cef89bd61d"
+    },
+    {
+      "bytes": 46214,
+      "path": "/l/users/anas.khan/cv_802_ass1/vggsfm/inputs/light_shirt_cleanup_masks/receipt.json",
+      "sha256": "086eff976073d6fdfa1477d3ec71a867911c64d51f6ab45755991112d06fbefd"
+    },
+    {
+      "bytes": 43156,
+      "path": "/l/users/anas.khan/cv_802_ass1/vggsfm/experiments/light-shirt-vggsfm-v1/request.json",
+      "sha256": "dd7169bd3988d34180862eb8f8b9dc606dc2b1b97c1b87104338bc39d3777c21"
+    }
+  ],
+  "source_files_before": [
+    {
+      "bytes": 149980,
+      "path": "/l/users/anas.khan/cv_802_ass1/vggsfm/outputs/light-shirt-vggsfm-v1/manifest.json",
+      "sha256": "5163daa8030e461d499266ca5bf3cfaa4fd8cc42e7fe532425bddebb27e55f64"
+    },
+    {
+      "bytes": 6213355,
+      "path": "/l/users/anas.khan/cv_802_ass1/vggsfm/outputs/light-shirt-vggsfm-v1/point_cloud.ply",
+      "sha256": "a74cc2381f8177e2067fbb62bbe615c042ab45863c5380a9ab46e81aa7261a87"
+    },
+    {
+      "bytes": 7008,
+      "path": "/l/users/anas.khan/cv_802_ass1/vggsfm/outputs/light-shirt-vggsfm-v1/colmap/sparse/0/cameras.bin",
+      "sha256": "5243d879a8e4adc1309459c9561e0aceb6e5f5aa72f43da6c71f9d5162e8f8b1"
+    },
+    {
+      "bytes": 10542330,
+      "path": "/l/users/anas.khan/cv_802_ass1/vggsfm/outputs/light-shirt-vggsfm-v1/colmap/sparse/0/images.bin",
+      "sha256": "8a83f28a0f905a26f85459a6d617d52303aa28a9097f1e97410d208e9665da6c"
+    },
+    {
+      "bytes": 24633856,
+      "path": "/l/users/anas.khan/cv_802_ass1/vggsfm/outputs/light-shirt-vggsfm-v1/colmap/sparse/0/points3D.bin",
+      "sha256": "0062dafd3dd3bd175e771ff467406acda0d3a1ee3f9bb516a3ed98d861949515"
+    },
+    {
+      "bytes": 302633,
+      "path": "/l/users/anas.khan/cv_802_ass1/vggsfm/outputs/light-shirt-vggsfm-v1-colmap-consistent-v1/manifest.json",
+      "sha256": "3c794965669742d7ed7e6ae44b135c90de7f0919cb5f885be0365c0d7c601574"
+    },
+    {
+      "bytes": 300755,
+      "path": "/l/users/anas.khan/cv_802_ass1/vggsfm/outputs/light-shirt-vggsfm-v1-colmap-consistent-v1/review_export_receipt.json",
+      "sha256": "8eb9b1851ec89fe0d2d955147b973bbf854f50d176f2ea20e0ed3e70d154f495"
+    },
+    {
+      "bytes": 7008,
+      "path": "/l/users/anas.khan/cv_802_ass1/vggsfm/outputs/light-shirt-vggsfm-v1-colmap-consistent-v1/colmap/sparse/0/cameras.bin",
+      "sha256": "96892bd9f4e32769d82e57604dbf7e63f56b3c6e511f418b9ba3a54bd9ed7925"
+    },
+    {
+      "bytes": 10542330,
+      "path": "/l/users/anas.khan/cv_802_ass1/vggsfm/outputs/light-shirt-vggsfm-v1-colmap-consistent-v1/colmap/sparse/0/images.bin",
+      "sha256": "9d99d803447cccc3e78128f28a16a6fdbeb9392358aad33932cf912ba64a66bf"
+    },
+    {
+      "bytes": 24633856,
+      "path": "/l/users/anas.khan/cv_802_ass1/vggsfm/outputs/light-shirt-vggsfm-v1-colmap-consistent-v1/colmap/sparse/0/points3D.bin",
+      "sha256": "b6f747bcf95856f52318c348a49eed2564d2bd9ee1a6564c114375cef89bd61d"
+    },
+    {
+      "bytes": 46214,
+      "path": "/l/users/anas.khan/cv_802_ass1/vggsfm/inputs/light_shirt_cleanup_masks/receipt.json",
+      "sha256": "086eff976073d6fdfa1477d3ec71a867911c64d51f6ab45755991112d06fbefd"
+    },
+    {
+      "bytes": 43156,
+      "path": "/l/users/anas.khan/cv_802_ass1/vggsfm/experiments/light-shirt-vggsfm-v1/request.json",
+      "sha256": "dd7169bd3988d34180862eb8f8b9dc606dc2b1b97c1b87104338bc39d3777c21"
+    }
+  ],
+  "source_files_before_after_equal": true,
+  "source_point_count": 414208,
+  "source_run_id": "light-shirt-vggsfm-v1",
+  "status": "complete",
+  "support_statistics": {
+    "agreement_histogram_for_minimum3": {
+      "00-010%": 47584,
+      "10-020%": 69605,
+      "20-030%": 69841,
+      "30-040%": 41737,
+      "40-050%": 10516,
+      "50-060%": 4817,
+      "60-070%": 4994,
+      "70-080%": 7637,
+      "80-090%": 18800,
+      "90-100%": 138677
+    },
+    "candidate_counts": {
+      "min3_agreement70": 165114,
+      "min3_agreement80": 157477,
+      "min3_agreement90": 138677,
+      "min6_agreement70": 165114,
+      "min6_agreement80": 157477,
+      "min6_agreement90": 138677
+    },
+    "maximum_foreground_votes": 125,
+    "maximum_usable_views": 125,
+    "minimum_foreground_votes": 0,
+    "usable_projection_histogram": {
+      "0": 0,
+      "1-2": 0,
+      "16-31": 84398,
+      "3-5": 2,
+      "32-63": 114232,
+      "6-15": 2211,
+      "64+": 213365
+    }
+  },
+  "triangulation_rerun": false,
+  "uses_e10_poses": false
+}

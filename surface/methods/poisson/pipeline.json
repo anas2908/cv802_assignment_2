@@ -1,0 +1,4 @@
+{"method_name": "Screened Poisson (from scratch)", "paper": "Kazhdan et al. SGP 2006; Kazhdan & Hoppe TOG 2013",
+ "description": "Own implementation: oriented normals, splatted field, screened Poisson CG solve, marching tetrahedra, density trimming.",
+ "default_run_args": ["--res", "256", "--alpha", "4", "--trim", "2"], "finalize_args": ["--color-source", "points"],
+ "expected_minutes": 6, "gpu": true}

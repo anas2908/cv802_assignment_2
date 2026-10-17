@@ -1,0 +1,16 @@
+{
+ "input": "surface/inputs/light_shirt_mvs_e10.ply",
+ "output": "/home/anas.khan/cv_802_repo/cv802_ass1/surface/inputs/light_shirt_mvs_e10_clean.ply",
+ "points_in": 487451,
+ "points_out": 487047,
+ "statistical_outliers": 0,
+ "floater_points": 404,
+ "params": {
+  "inp": "surface/inputs/light_shirt_mvs_e10.ply",
+  "out": "/home/anas.khan/cv_802_repo/cv802_ass1/surface/inputs/light_shirt_mvs_e10_clean.ply",
+  "k": 16,
+  "std": 1000000000.0,
+  "radius_mult": 25.0,
+  "min_cluster": 0.001
+ }
+}

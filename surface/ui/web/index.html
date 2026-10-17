@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CV802 Surface Extraction</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="eyebrow">CV802 · Sub-project 2</div>
+    <h1>Surface extraction</h1>
+    <p class="intro">Coloured VGGSfM points (light shirt, mask-cleaned) → textured <code>.obj</code> mesh. Run any method on the GPU allocation, then inspect it in the 3D mesh viewer.</p>
+    <nav class="nav"><a class="active" href="/">Dashboard</a><a href="/viewer">Mesh viewer</a><a href="/compare">Compare</a></nav>
+
+    <section class="section">
+      <h2>Input</h2>
+      <dl class="kv" id="input"><dt>Loading…</dt><dd></dd></dl>
+    </section>
+
+    <section class="section">
+      <h2>Live GPU</h2>
+      <div id="gpu" class="small">Reading GPU…</div>
+      <div class="meter"><span class="meter-label">Utilisation</span><div class="bar blue"><span id="gpu-util" style="width:0%"></span></div></div>
+      <div class="meter"><span class="meter-label">Memory</span><div class="bar"><span id="gpu-mem" style="width:0%"></span></div></div>
+      <canvas class="spark" id="spark" width="300" height="60"></canvas>
+    </section>
+  </aside>
+
+  <main class="main">
+    <section class="panel">
+      <div class="panel-head"><h2>Current run</h2><span id="job-badge" class="badge muted">idle</span></div>
+      <div id="job-meta" class="active-meta small">No run in progress. Start one from a method card below.</div>
+      <div class="bar big"><span id="job-bar" style="width:0%"></span></div>
+      <div id="job-stage" class="small"></div>
+      <p id="job-error" class="error-text"></p>
+      <div><button id="cancel" class="danger small" type="button" hidden>Cancel run</button></div>
+      <details><summary>Log</summary><pre class="log" id="job-log">—</pre></details>
+      <div id="queue" class="small"></div>
+    </section>
+
+    <h2 class="title">Methods</h2>
+    <div class="cards" id="methods"><div class="empty">Loading methods…</div></div>
+
+    <h2 class="title">Completed results</h2>
+    <div class="results-grid" id="results"><div class="empty">No results yet.</div></div>
+  </main>
+
+  <script src="/static/common.js"></script>
+  <script>
+  "use strict";
+  const {esc, getJSON, postJSON, num, duration, stateBadge, drawSpark} = window.CV802;
+  const $ = (s) => document.querySelector(s);
+  let currentJob = null, readOnly = false;
+
+  async function loadConfig() {
+    const c = await getJSON("/api/config");
+    readOnly = c.read_only;
+    const i = c.input || {};
+    $("#input").innerHTML = `<dt>File</dt><dd>${esc(i.name)}</dd><dt>Points</dt><dd>${num(i.point_count)}</dd>
+      <dt>Source</dt><dd class="mono small">${esc(i.source_run || "VGGSfM light shirt")}</dd>
+      <dt>Frame</dt><dd>up ${esc(i.frame?.up)}, faces ${esc(i.frame?.front)}</dd><dt>Node</dt><dd>${esc(c.node)}</dd>`;
+  }
+
+  function resultCard(r) {
+    const h = r.headline || {};
+    return `<div class="result">
+      ${r.thumb ? `<a href="/viewer?run=${encodeURIComponent(r.key)}"><img src="${r.thumb}" alt="${esc(r.run_id)}" loading="lazy"></a>` : `<div class="thumbbox"></div>`}
+      <div class="body"><strong>${esc(r.method_name)}</strong><div class="small mono">${esc(r.run_id)}</div>
+        <div class="small">${num(h.faces)} faces · F@1% ${num(h.fscore_1)} · CD ${num(h.chamfer_pct, 2)}% diag · PSNR ${num(h.psnr, 1)} dB</div>
+        <div class="links"><a href="/viewer?run=${encodeURIComponent(r.key)}">View 3D</a> · <a href="${r.zip}">Download OBJ</a></div></div></div>`;
+  }
+
+  async function loadMethods() {
+    const [{methods}, {runs}] = await Promise.all([getJSON("/api/methods"), getJSON("/api/runs")]);
+    $("#methods").innerHTML = methods.map((m) => {
+      const l = m.latest_result;
+      return `<div class="card"><h3>${esc(m.name)}</h3>
+        <p class="paper">${m.paper_url ? `<a href="${esc(m.paper_url)}" target="_blank">${esc(m.paper)}</a>` : esc(m.paper)}</p>
+        <p>${esc(m.description)}</p>
+        <p class="small">Colour: ${esc(m.colour || "texture baked from input points")} · ~${num(m.expected_minutes)} min · ${m.result_count || 0} result(s)</p>
+        ${l ? `<div class="latest"><a href="/viewer?run=${encodeURIComponent(l.key)}">${l.thumb ? `<img src="${l.thumb}" alt="">` : ""}</a>
+          <span class="small">Best: ${esc(l.run_id)} · F@1% ${num(l.headline?.fscore_1)}</span></div>` : `<p class="small notice">No result yet.</p>`}
+        <details><summary>Run options</summary><label>Method args<input type="text" data-args="${m.id}" value="${esc((m.default_run_args || []).join(" "))}"></label>
+          <label>Finalize args<input type="text" data-fargs="${m.id}" value="${esc((m.finalize_args || []).join(" "))}"></label></details>
+        <div class="actions"><button class="primary" data-run="${m.id}" ${(!m.runnable || readOnly) ? "disabled" : ""}>Run</button>
+          ${l ? `<a class="button small" href="/viewer?run=${encodeURIComponent(l.key)}">View</a>` : ""}</div>
+        ${m.pipeline_error ? `<p class="error-text small">${esc(m.pipeline_error)}</p>` : ""}</div>`;
+    }).join("") || `<div class="empty">No methods found.</div>`;
+    $("#results").innerHTML = runs.length ? runs.map(resultCard).join("") : `<div class="empty">No results yet.</div>`;
+    document.querySelectorAll("[data-run]").forEach((b) => b.addEventListener("click", async () => {
+      const id = b.dataset.run, split = (s) => s.trim() ? s.trim().split(/\s+/) : [];
+      b.disabled = true;
+      try {
+        await postJSON("/api/run", {method: id, run_args: split(document.querySelector(`[data-args="${id}"]`).value),
+          finalize_args: split(document.querySelector(`[data-fargs="${id}"]`).value)});
+        pollStatus();
+      } catch (e) { alert(`Could not start ${id}: ${e.message}`); }
+      b.disabled = false;
+    }));
+  }
+
+  async function pollStatus() {
+    try {
+      const s = await getJSON("/api/status");
+      const g = s.gpu || {};
+      $("#gpu").textContent = g.available ? `${g.name} · ${num(g.temperature_c)} °C · ${num(g.power_w, 0)} W · lock ${s.lock}` : "GPU not visible";
+      $("#gpu-util").style.width = `${g.utilization_percent || 0}%`;
+      $("#gpu-mem").style.width = `${100 * (g.memory_used_mib || 0) / (g.memory_total_mib || 1)}%`;
+      $("#gpu-mem").parentElement.title = `${num(g.memory_used_mib, 0)} / ${num(g.memory_total_mib, 0)} MiB`;
+      drawSpark($("#spark"), s.history || [], g.memory_total_mib);
+      const job = s.current;
+      $("#cancel").hidden = !job;
+      if (job) {
+        const p = job.progress || {};
+        currentJob = job.id;
+        $("#job-badge").outerHTML = `<span id="job-badge">${stateBadge(job.state)}</span>`;
+        $("#job-meta").innerHTML = `<strong>${esc(job.method_id)}</strong> · <span class="mono">${esc(job.run_id)}</span> · phase ${esc(job.phase)} · ${duration(p.elapsed_seconds)}`;
+        $("#job-bar").style.width = `${p.overall_percent || 0}%`;
+        $("#job-stage").textContent = `${num(p.overall_percent, 0)}% · ${p.stage || ""} ${p.message || ""}`;
+        $("#job-error").textContent = "";
+        const log = await fetch(`/api/jobs/${job.id}/log`, {cache: "no-store"}).then((r) => r.text()).catch(() => "");
+        const pre = $("#job-log"); pre.textContent = log.slice(-12000) || "—"; pre.scrollTop = pre.scrollHeight;
+      } else {
+        const last = (s.recent || [])[0];
+        if (currentJob && last && last.id === currentJob) { currentJob = null; loadMethods(); }
+        $("#job-badge").outerHTML = `<span id="job-badge" class="badge muted">idle</span>`;
+        $("#job-bar").style.width = last && last.state === "succeeded" ? "100%" : "0%";
+        $("#job-meta").innerHTML = last ? `Last run: <strong>${esc(last.method_id)}</strong> <span class="mono">${esc(last.run_id)}</span> · ${esc(last.state)}` : "No run in progress. Start one from a method card below.";
+        $("#job-stage").textContent = "";
+        $("#job-error").textContent = last && last.error ? last.error : "";
+      }
+      $("#queue").textContent = (s.queue || []).length ? `Queued: ${s.queue.map((j) => j.method_id).join(", ")}` : "";
+    } catch (e) { $("#gpu").textContent = `Status unavailable: ${e.message}`; }
+  }
+
+  $("#cancel").addEventListener("click", async () => {
+    if (currentJob && confirm("Cancel the running job?")) await postJSON("/api/cancel", {job_id: currentJob}).catch((e) => alert(e.message));
+  });
+
+  loadConfig().catch((e) => { $("#input").innerHTML = `<dt>Error</dt><dd>${esc(e.message)}</dd>`; });
+  loadMethods().catch((e) => { $("#methods").innerHTML = `<div class="empty">${esc(e.message)}</div>`; });
+  pollStatus();
+  setInterval(pollStatus, 3000);
+  </script>
+<script>
+/* dataset banner: which point cloud these results were reconstructed from */
+fetch("/api/config", {cache: "no-store"}).then((r) => r.json()).then((c) => {
+  c.dataset = c.dataset || (c.input && c.input.dataset); if (!c.dataset) return;
+  const mvs = /mvs/i.test(c.dataset);
+  const b = document.createElement("div");
+  b.textContent = "Input point cloud: " + c.dataset;
+  b.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:50;padding:5px 12px;font:700 13px system-ui;text-align:center;" +
+    "color:#fff;background:" + (mvs ? "#7a3fb0" : "#17674f") + ";letter-spacing:.02em";
+  document.body.appendChild(b); document.body.style.paddingTop = "26px";
+  const e = document.querySelector(".eyebrow"); if (e) e.textContent += mvs ? " · MVS input" : " · VGGSfM input";
+  document.title = (mvs ? "[MVS] " : "[VGGSfM] ") + document.title;
+}).catch(() => {});
+</script>
+</body>
+</html>

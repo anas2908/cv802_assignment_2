@@ -1,0 +1,3 @@
+{"method_name": "NKSR (CVPR 2023, SOTA)", "paper": "Huang et al., Neural Kernel Surface Reconstruction, CVPR 2023",
+ "description": "Extra state-of-the-art method: pretrained neural kernel field (NVIDIA) built for noisy real scans; mesh + colour field.",
+ "default_run_args": ["--normals", "ours", "--detail", "1.0"], "finalize_args": ["--color-source", "vertex"], "expected_minutes": 3, "gpu": true}

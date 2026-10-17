@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CV802 Mesh Viewer</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script type="importmap">
+  {"imports": {"three": "/static/vendor/three-0.160.1/build/three.module.js",
+               "three/addons/": "/static/vendor/three-0.160.1/examples/jsm/"}}
+  </script>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="eyebrow">CV802 · Sub-project 2</div>
+    <h1>Mesh viewer</h1>
+    <p class="intro">Textured OBJ results; the input point cloud is named in the banner above.</p>
+    <nav class="nav"><a href="/">Dashboard</a><a class="active" href="/viewer">Mesh viewer</a><a href="/compare">Compare</a></nav>
+
+    <label for="run">Result</label>
+    <select id="run"></select>
+    <label for="run2">Compare side by side with</label>
+    <select id="run2"><option value="">— none —</option></select>
+
+    <fieldset>
+      <legend>Display</legend>
+      <label class="subject-option"><input type="radio" name="mode" value="textured" checked> Textured</label>
+      <label class="subject-option"><input type="radio" name="mode" value="shaded"> Shaded geometry</label>
+      <label class="subject-option"><input type="checkbox" id="wire"> Wireframe overlay</label>
+      <label class="subject-option"><input type="checkbox" id="points"> Input point cloud overlay</label>
+      <label class="subject-option"><input type="checkbox" id="hide-mesh"> Hide mesh (points only)</label>
+    </fieldset>
+
+    <section class="section">
+      <div class="badges"><span id="m-badge" class="badge">—</span><span id="m-faces" class="badge muted">— faces</span></div>
+      <h2 id="m-title">Loading…</h2>
+      <p id="m-paper" class="small"></p>
+      <table class="metrics-table" id="metrics"></table>
+      <div class="downloads" id="downloads"></div>
+      <div class="gallery" id="gallery"></div>
+    </section>
+  </aside>
+
+  <main class="viewer-shell">
+    <canvas id="viewer" aria-label="Interactive textured mesh viewer"></canvas>
+    <div class="pane-label left" id="label-a"></div>
+    <div class="pane-label right" id="label-b" hidden></div>
+    <div class="divider" id="divider" hidden></div>
+    <div class="viewer-toolbar">
+      <button id="fit" type="button">Reset view</button>
+      <span class="views"><button data-view="front">Front</button><button data-view="back">Back</button><button data-view="left">Left</button><button data-view="right">Right</button><button data-view="top">Top</button></span>
+      <label>Point size <input id="point-size" type="range" min="1" max="8" step="0.5" value="2"></label>
+      <label>Background
+        <select id="bg"><option value="#090f1a">Dark</option><option value="#000000">Black</option><option value="#ffffff">White</option><option value="#808890">Grey</option><option value="custom">Custom</option></select>
+      </label>
+      <input id="bg-custom" type="color" value="#090f1a" disabled>
+    </div>
+    <div id="status" class="status">Loading…</div>
+    <div class="help">Drag to rotate · Shift/right-drag to pan · Scroll to zoom · Double-click to reset</div>
+  </main>
+  <div class="lightbox" id="lightbox" hidden><img alt=""><div></div></div>
+
+  <script src="/static/common.js"></script>
+  <script type="module">
+  import * as THREE from "three";
+  import {OrbitControls} from "three/addons/controls/OrbitControls.js";
+  import {OBJLoader} from "three/addons/loaders/OBJLoader.js";
+  import {MTLLoader} from "three/addons/loaders/MTLLoader.js";
+  import {PLYLoader} from "three/addons/loaders/PLYLoader.js";
+
+  const {esc, getJSON, num, bytes} = window.CV802;
+  const $ = (s) => document.querySelector(s);
+  const canvas = $("#viewer");
+  const renderer = new THREE.WebGLRenderer({canvas, antialias: true, preserveDrawingBuffer: true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.setScissorTest(true);
+
+  // The VGGSfM frame has the person's head towards -Y and the face towards +Z (measured by the server).
+  let UP = new THREE.Vector3(0, -1, 0), FRONT = new THREE.Vector3(0, 0, 1);
+  const camera = new THREE.PerspectiveCamera(35, 1, 0.01, 100);
+  const controls = new OrbitControls(camera, canvas);
+  controls.enableDamping = true;
+
+  function makeScene() {
+    const s = new THREE.Scene();
+    s.add(new THREE.HemisphereLight(0xffffff, 0x444455, 1.6));
+    const d = new THREE.DirectionalLight(0xffffff, 1.4); d.position.set(1, -2, 3); s.add(d);
+    const d2 = new THREE.DirectionalLight(0xffffff, 0.6); d2.position.set(-2, 1, -2); s.add(d2);
+    return s;
+  }
+  const panes = [{scene: makeScene(), group: null, key: null}, {scene: makeScene(), group: null, key: null}];
+  let pointCloud = null, bbox = null, runs = [];
+
+  const setStatus = (m, err = false) => { $("#status").textContent = m; $("#status").classList.toggle("error", err); $("#status").hidden = !m; };
+
+  function resize() {
+    const r = canvas.parentElement.getBoundingClientRect();
+    renderer.setSize(r.width, r.height, false);
+    canvas.style.width = `${r.width}px`; canvas.style.height = `${r.height}px`;
+  }
+  window.addEventListener("resize", resize);
+
+  function frame(view = "front") {
+    if (!bbox) return;
+    const c = bbox.getCenter(new THREE.Vector3()), size = bbox.getSize(new THREE.Vector3()).length();
+    const left = new THREE.Vector3().crossVectors(UP, FRONT).normalize();
+    const dir = {front: FRONT, back: FRONT.clone().negate(), left: left, right: left.clone().negate(),
+                 top: UP.clone().add(FRONT.clone().multiplyScalar(0.02))}[view].clone().normalize();
+    camera.up.copy(view === "top" ? FRONT : UP);
+    camera.position.copy(c).addScaledVector(dir, size * 1.9);
+    camera.near = size / 100; camera.far = size * 20; camera.updateProjectionMatrix();
+    controls.target.copy(c); controls.update();
+  }
+
+  function applyMode(group) {
+    if (!group) return;
+    const mode = document.querySelector('input[name="mode"]:checked').value;
+    group.traverse((o) => {
+      if (!o.isMesh || o.userData.wire) return;
+      if (!o.userData.textured) o.userData.textured = o.material;
+      if (!o.userData.shaded) o.userData.shaded = new THREE.MeshStandardMaterial({color: 0xc8ccd2, roughness: 0.8, metalness: 0, side: THREE.DoubleSide, flatShading: false});
+      o.material = mode === "textured" ? o.userData.textured : o.userData.shaded;
+      o.visible = !$("#hide-mesh").checked;
+    });
+    group.children.filter((o) => o.userData.wire).forEach((w) => { w.visible = $("#wire").checked && !$("#hide-mesh").checked; });
+  }
+
+  async function loadRun(pane, key) {
+    const p = panes[pane];
+    if (p.group) { p.scene.remove(p.group); p.group = null; }
+    p.key = key;
+    if (!key) return null;
+    const run = await getJSON(`/api/run/${key}`);
+    // light display copy (decimated mesh + JPEG texture) when available; downloads still offer the full mesh.obj
+    const disp = run.files?.["display.obj"] && run.files?.["display.mtl"];
+    const objName = disp ? "display.obj" : "mesh.obj", mtlName = disp ? "display.mtl" : "mesh.mtl";
+    const objUrl = run.files?.[objName]?.url;
+    if (!objUrl) throw new Error(`${run.run_id} has no mesh.obj`);
+    const base = objUrl.slice(0, objUrl.lastIndexOf("/") + 1);
+    setStatus(`Loading ${run.run_id} (${bytes(run.files[objName].bytes)}${disp ? ", display copy" : ""})…`);
+    const mtl = run.files[mtlName] ? await new MTLLoader().setPath(base).loadAsync(mtlName) : null;
+    if (mtl) { mtl.preload(); Object.values(mtl.materials).forEach((m) => { m.side = THREE.DoubleSide; if (m.map) m.map.colorSpace = THREE.SRGBColorSpace; }); }
+    const loader = new OBJLoader(); if (mtl) loader.setMaterials(mtl);
+    const group = await loader.loadAsync(objUrl, (e) => { if (e.total) setStatus(`Loading ${run.run_id}: ${Math.round(100 * e.loaded / e.total)}%`); });
+    const wires = [];
+    group.traverse((o) => {
+      if (!o.isMesh) return;
+      if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals();
+      if (!mtl) o.material = new THREE.MeshStandardMaterial({color: 0xcccccc, side: THREE.DoubleSide});
+      const w = new THREE.LineSegments(new THREE.WireframeGeometry(o.geometry), new THREE.LineBasicMaterial({color: 0x63d6b5, transparent: true, opacity: 0.35}));
+      w.userData.wire = true; wires.push(w);
+    });
+    wires.forEach((w) => group.add(w));
+    p.group = group; p.scene.add(group); applyMode(group);
+    return run;
+  }
+
+  function showDetails(run) {
+    const h = run.headline || {}, info = run.method_info || {};
+    $("#m-title").textContent = `${run.method_name}`;
+    $("#m-badge").textContent = run.run_id;
+    $("#m-faces").textContent = `${num(h.faces)} faces`;
+    $("#m-paper").innerHTML = `${esc(info.paper || "")}${info.official_code ? ` · <a href="${esc(info.official_code)}" target="_blank">code</a>` : ""}`;
+    const rows = [["Geometry"], ["Chamfer (L1, % bbox diag)", num(h.chamfer_pct, 3)], ["F-score @1%", num(h.fscore_1)], ["F-score @0.5%", num(h.fscore_05)],
+      ["Normal consistency", num(h.normal_consistency)], ["Mesh"], ["Vertices / faces", `${num(h.vertices)} / ${num(h.faces)}`], ["Watertight", num(h.watertight)],
+      ["Components", num(h.components)], ["Boundary edges", num(h.boundary_edges)], ["Texture"], ["Colour PSNR vs points", `${num(h.psnr, 1)} dB`],
+      ["Colour MAE (0-255)", num(h.color_mae, 1)], ["Texture source", esc(run.texture?.color_source)], ["Runtime"], ["Method time", h.runtime_s != null ? `${num(h.runtime_s, 0)} s` : "—"]];
+    $("#metrics").innerHTML = rows.map((r) => r.length === 1 ? `<tr class="group"><td colspan="2">${r[0]}</td></tr>` : `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("");
+    $("#downloads").innerHTML = Object.entries(run.files || {}).filter(([n]) => /\.(obj|mtl|png|json|txt)$/.test(n))
+      .map(([n, f]) => `<a class="button small" href="${f.url}" download>${esc(n)} <span class="small">${bytes(f.bytes)}</span></a>`).join("") + (run.zip ? `<a class="button small" href="${run.zip}">All (.zip)</a>` : "");
+    $("#gallery").innerHTML = (run.previews || []).map((p) => { const u = typeof p === "string" ? p : p.url; return `<img src="${u}" alt="" loading="lazy">`; }).join("");
+    $("#gallery").querySelectorAll("img").forEach((im) => im.addEventListener("click", () => { $("#lightbox img").src = im.src; $("#lightbox").hidden = false; }));
+  }
+  $("#lightbox").addEventListener("click", () => { $("#lightbox").hidden = true; });
+
+  async function loadPoints() {
+    if (pointCloud) return pointCloud;
+    setStatus("Loading input point cloud…");
+    const geo = await new PLYLoader().loadAsync("/input/cloud.ply");
+    if (geo.attributes.color) geo.attributes.color.needsUpdate = true;
+    const mat = new THREE.PointsMaterial({size: Number($("#point-size").value), sizeAttenuation: false, vertexColors: !!geo.attributes.color});
+    pointCloud = [new THREE.Points(geo, mat), new THREE.Points(geo, mat)];
+    return pointCloud;
+  }
+  async function togglePoints() {
+    if ($("#points").checked || $("#hide-mesh").checked) {
+      const pc = await loadPoints(); panes[0].scene.add(pc[0]); panes[1].scene.add(pc[1]);
+    } else if (pointCloud) { panes[0].scene.remove(pointCloud[0]); panes[1].scene.remove(pointCloud[1]); }
+    setStatus("");
+  }
+
+  async function selectRuns(resetView) {
+    const k1 = $("#run").value, k2 = $("#run2").value;
+    const url = new URL(location.href); url.searchParams.set("run", k1); if (k2) url.searchParams.set("compare", k2); else url.searchParams.delete("compare");
+    history.replaceState(null, "", url);
+    try {
+      const [a, b] = await Promise.all([loadRun(0, k1), loadRun(1, k2)]);
+      if (a) { showDetails(a); $("#label-a").textContent = a.run_id; }
+      $("#label-b").hidden = $("#divider").hidden = !b; if (b) $("#label-b").textContent = b.run_id;
+      if (resetView || !bbox) { bbox = new THREE.Box3().setFromObject(panes[0].group); frame("front"); }
+      setStatus("");
+    } catch (e) { setStatus(`Could not load: ${e.message}`, true); }
+  }
+
+  function render() {
+    requestAnimationFrame(render);
+    controls.update();
+    const w = canvas.clientWidth, h = canvas.clientHeight, split = !!panes[1].group;
+    const pw = split ? Math.floor(w / 2) : w;
+    camera.aspect = pw / h; camera.updateProjectionMatrix();
+    const bg = $("#bg").value === "custom" ? $("#bg-custom").value : $("#bg").value;
+    [0, 1].forEach((i) => {
+      if (i === 1 && !split) return;
+      renderer.setViewport(i * pw, 0, pw, h); renderer.setScissor(i * pw, 0, pw, h);
+      renderer.setClearColor(bg); renderer.render(panes[i].scene, camera);   // one camera -> synchronised views
+    });
+  }
+
+  async function init() {
+    resize();
+    const cfg = await getJSON("/api/config").catch(() => ({}));
+    const f = cfg.input?.frame || {};
+    const axis = (s) => { if (!s) return null; if (Array.isArray(s)) return new THREE.Vector3(...s).normalize();
+      const v = new THREE.Vector3(); v[s.slice(-1)] = s[0] === "-" ? -1 : 1; return v; };   // "-y" or [x, y, z]
+    UP = axis(f.up) || UP; FRONT = axis(f.front) || FRONT;
+    runs = (await getJSON("/api/runs")).runs || [];
+    if (!runs.length) { setStatus("No completed results yet — run a method from the dashboard.", true); return; }
+    const byMethod = {};
+    runs.forEach((r) => (byMethod[r.method_name] ||= []).push(r));
+    const opts = Object.entries(byMethod).map(([m, rs]) => `<optgroup label="${esc(m)}">${rs.map((r) =>
+      `<option value="${esc(r.key)}">${esc(r.run_id)} · F@1% ${num(r.headline?.fscore_1)}</option>`).join("")}</optgroup>`).join("");
+    $("#run").innerHTML = opts; $("#run2").innerHTML = `<option value="">— none —</option>${opts}`;
+    const q = new URLSearchParams(location.search);
+    if (q.get("run") && runs.some((r) => r.key === q.get("run"))) $("#run").value = q.get("run");
+    if (q.get("compare")) $("#run2").value = q.get("compare");
+    await selectRuns(true);
+    render();
+  }
+
+  $("#run").addEventListener("change", () => selectRuns(false));
+  $("#run2").addEventListener("change", () => selectRuns(false));
+  document.querySelectorAll('input[name="mode"], #wire, #hide-mesh').forEach((el) => el.addEventListener("change", () => { panes.forEach((p) => applyMode(p.group)); togglePoints(); }));
+  $("#points").addEventListener("change", togglePoints);
+  $("#point-size").addEventListener("input", () => { if (pointCloud) pointCloud[0].material.size = Number($("#point-size").value); });
+  $("#bg").addEventListener("change", () => { $("#bg-custom").disabled = $("#bg").value !== "custom"; });
+  $("#fit").addEventListener("click", () => frame("front"));
+  canvas.addEventListener("dblclick", () => frame("front"));
+  document.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => frame(b.dataset.view)));
+  init().catch((e) => setStatus(`Viewer error: ${e.message}`, true));
+  </script>
+<script>
+/* dataset banner: which point cloud these results were reconstructed from */
+fetch("/api/config", {cache: "no-store"}).then((r) => r.json()).then((c) => {
+  c.dataset = c.dataset || (c.input && c.input.dataset); if (!c.dataset) return;
+  const mvs = /mvs/i.test(c.dataset);
+  const b = document.createElement("div");
+  b.textContent = "Input point cloud: " + c.dataset;
+  b.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:50;padding:5px 12px;font:700 13px system-ui;text-align:center;" +
+    "color:#fff;background:" + (mvs ? "#7a3fb0" : "#17674f") + ";letter-spacing:.02em";
+  document.body.appendChild(b); document.body.style.paddingTop = "26px";
+  const e = document.querySelector(".eyebrow"); if (e) e.textContent += mvs ? " · MVS input" : " · VGGSfM input";
+  document.title = (mvs ? "[MVS] " : "[VGGSfM] ") + document.title;
+}).catch(() => {});
+</script>
+</body>
+</html>

@@ -1,0 +1,3 @@
+{"method_name": "IER meshing (ECCV 2020)", "paper": "Liu, Zhang, Su. Meshing Point Clouds with Predicted Intrinsic-Extrinsic Ratio Guidance, ECCV 2020",
+ "description": "Official pretrained network scores kNN candidate triangles by intrinsic-extrinsic ratio; greedy manifold post-processing keeps the best.",
+ "default_run_args": ["--points", "12500"], "finalize_args": ["--color-source", "points"], "expected_minutes": 8, "gpu": true}
