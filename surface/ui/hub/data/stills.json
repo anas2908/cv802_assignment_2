@@ -1,0 +1,436 @@
+{
+ "v1_poisson": [
+  {
+   "file": "stills/v1_poisson_00.jpg",
+   "label": "Dots to skin"
+  },
+  {
+   "file": "stills/v1_poisson_01.jpg",
+   "label": "1 The problem"
+  },
+  {
+   "file": "stills/v1_poisson_02.jpg",
+   "label": "2 Inside or outside"
+  },
+  {
+   "file": "stills/v1_poisson_03.jpg",
+   "label": "3 Arrows"
+  },
+  {
+   "file": "stills/v1_poisson_04.jpg",
+   "label": "4 One tile each"
+  },
+  {
+   "file": "stills/v1_poisson_05.jpg",
+   "label": "5 Make them agree"
+  },
+  {
+   "file": "stills/v1_poisson_06.jpg",
+   "label": "6 Onto the grid"
+  },
+  {
+   "file": "stills/v1_poisson_07.jpg",
+   "label": "7 Rebuild chi"
+  },
+  {
+   "file": "stills/v1_poisson_08.jpg",
+   "label": "8 Pins"
+  },
+  {
+   "file": "stills/v1_poisson_09.jpg",
+   "label": "9 Draw the skin"
+  },
+  {
+   "file": "stills/v1_poisson_10.jpg",
+   "label": "10 Trim"
+  },
+  {
+   "file": "stills/v1_poisson_11.jpg",
+   "label": "The pipeline"
+  }
+ ],
+ "v2_metrics": [
+  {
+   "file": "stills/v2_metrics_00.jpg",
+   "label": "11a No ground truth"
+  },
+  {
+   "file": "stills/v2_metrics_01.jpg",
+   "label": "11b Accuracy"
+  },
+  {
+   "file": "stills/v2_metrics_02.jpg",
+   "label": "11c Completeness"
+  },
+  {
+   "file": "stills/v2_metrics_03.jpg",
+   "label": "11d Why both"
+  },
+  {
+   "file": "stills/v2_metrics_04.jpg",
+   "label": "11e Chamfer"
+  },
+  {
+   "file": "stills/v2_metrics_05.jpg",
+   "label": "11f Scale"
+  },
+  {
+   "file": "stills/v2_metrics_06.jpg",
+   "label": "11g Threshold"
+  },
+  {
+   "file": "stills/v2_metrics_07.jpg",
+   "label": "11h F-score"
+  },
+  {
+   "file": "stills/v2_metrics_08.jpg",
+   "label": "11i Why F"
+  },
+  {
+   "file": "stills/v2_metrics_09.jpg",
+   "label": "11j Our numbers"
+  },
+  {
+   "file": "stills/v2_metrics_10.jpg",
+   "label": "11k Smooth or crumpled"
+  },
+  {
+   "file": "stills/v2_metrics_11.jpg",
+   "label": "11l Colours"
+  },
+  {
+   "file": "stills/v2_metrics_12.jpg",
+   "label": "11m Watertight"
+  },
+  {
+   "file": "stills/v2_metrics_13.jpg",
+   "label": "11n At a glance"
+  }
+ ],
+ "v3_ier_p1": [
+  {
+   "file": "stills/v3_ier_p1_00.jpg",
+   "label": "IER"
+  },
+  {
+   "file": "stills/v3_ier_p1_01.jpg",
+   "label": "A different idea"
+  },
+  {
+   "file": "stills/v3_ier_p1_02.jpg",
+   "label": "Candidates"
+  },
+  {
+   "file": "stills/v3_ier_p1_03.jpg",
+   "label": "The trap"
+  },
+  {
+   "file": "stills/v3_ier_p1_04.jpg",
+   "label": "Ruler and ant"
+  },
+  {
+   "file": "stills/v3_ier_p1_05.jpg",
+   "label": "The ratio"
+  },
+  {
+   "file": "stills/v3_ier_p1_06.jpg",
+   "label": "Three labels"
+  },
+  {
+   "file": "stills/v3_ier_p1_07.jpg",
+   "label": "The catch"
+  }
+ ],
+ "v3_ier_p2": [
+  {
+   "file": "stills/v3_ier_p2_00.jpg",
+   "label": "Training"
+  },
+  {
+   "file": "stills/v3_ier_p2_01.jpg",
+   "label": "The network"
+  },
+  {
+   "file": "stills/v3_ier_p2_02.jpg",
+   "label": "Judging a triangle"
+  },
+  {
+   "file": "stills/v3_ier_p2_03.jpg",
+   "label": "Building the mesh"
+  },
+  {
+   "file": "stills/v3_ier_p2_04.jpg",
+   "label": "On our scan"
+  },
+  {
+   "file": "stills/v3_ier_p2_05.jpg",
+   "label": "Limits"
+  },
+  {
+   "file": "stills/v3_ier_p2_06.jpg",
+   "label": "IER in one line"
+  }
+ ],
+ "v4_ma_p1": [
+  {
+   "file": "stills/v4_ma_p1_00.jpg",
+   "label": "MeshAnything"
+  },
+  {
+   "file": "stills/v4_ma_p1_01.jpg",
+   "label": "Two kinds of mesh"
+  },
+  {
+   "file": "stills/v4_ma_p1_02.jpg",
+   "label": "On our scan"
+  },
+  {
+   "file": "stills/v4_ma_p1_03.jpg",
+   "label": "How a language model writes"
+  },
+  {
+   "file": "stills/v4_ma_p1_04.jpg",
+   "label": "Corners into numbers"
+  },
+  {
+   "file": "stills/v4_ma_p1_05.jpg",
+   "label": "A fixed order"
+  },
+  {
+   "file": "stills/v4_ma_p1_06.jpg",
+   "label": "Share the edge"
+  },
+  {
+   "file": "stills/v4_ma_p1_07.jpg",
+   "label": "Where the shape comes in"
+  },
+  {
+   "file": "stills/v4_ma_p1_08.jpg",
+   "label": "Watch it write"
+  },
+  {
+   "file": "stills/v4_ma_p1_09.jpg",
+   "label": "Part 1 in one line"
+  }
+ ],
+ "v4_ma_p2": [
+  {
+   "file": "stills/v4_ma_p2_00.jpg",
+   "label": "How it was trained"
+  },
+  {
+   "file": "stills/v4_ma_p2_01.jpg",
+   "label": "The input matters"
+  },
+  {
+   "file": "stills/v4_ma_p2_02.jpg",
+   "label": "The fix"
+  },
+  {
+   "file": "stills/v4_ma_p2_03.jpg",
+   "label": "Our experiments"
+  },
+  {
+   "file": "stills/v4_ma_p2_04.jpg",
+   "label": "What we learned"
+  },
+  {
+   "file": "stills/v4_ma_p2_05.jpg",
+   "label": "Against Poisson and IER"
+  },
+  {
+   "file": "stills/v4_ma_p2_06.jpg",
+   "label": "Limits"
+  },
+  {
+   "file": "stills/v4_ma_p2_07.jpg",
+   "label": "In one line"
+  }
+ ],
+ "v5_p2m_p1": [
+  {
+   "file": "stills/v5_p2m_p1_00.jpg",
+   "label": "Point2Mesh"
+  },
+  {
+   "file": "stills/v5_p2m_p1_01.jpg",
+   "label": "Shrink-wrap"
+  },
+  {
+   "file": "stills/v5_p2m_p1_02.jpg",
+   "label": "The starting skin"
+  },
+  {
+   "file": "stills/v5_p2m_p1_03.jpg",
+   "label": "Pushing the corners"
+  },
+  {
+   "file": "stills/v5_p2m_p1_04.jpg",
+   "label": "Let a network push"
+  },
+  {
+   "file": "stills/v5_p2m_p1_05.jpg",
+   "label": "The self-prior"
+  },
+  {
+   "file": "stills/v5_p2m_p1_06.jpg",
+   "label": "What it minimises"
+  },
+  {
+   "file": "stills/v5_p2m_p1_07.jpg",
+   "label": "Coarse to fine"
+  },
+  {
+   "file": "stills/v5_p2m_p1_08.jpg",
+   "label": "Part 1 in one line"
+  }
+ ],
+ "v5_p2m_p2": [
+  {
+   "file": "stills/v5_p2m_p2_00.jpg",
+   "label": "Which way the arrows point"
+  },
+  {
+   "file": "stills/v5_p2m_p2_01.jpg",
+   "label": "Our four runs"
+  },
+  {
+   "file": "stills/v5_p2m_p2_02.jpg",
+   "label": "Stray dots"
+  },
+  {
+   "file": "stills/v5_p2m_p2_03.jpg",
+   "label": "The red patches"
+  },
+  {
+   "file": "stills/v5_p2m_p2_04.jpg",
+   "label": "Against the others"
+  },
+  {
+   "file": "stills/v5_p2m_p2_05.jpg",
+   "label": "Limits and strengths"
+  },
+  {
+   "file": "stills/v5_p2m_p2_06.jpg",
+   "label": "In one line"
+  }
+ ],
+ "v6_dhsp_p1": [
+  {
+   "file": "stills/v6_dhsp_p1_00.jpg",
+   "label": "DHSP"
+  },
+  {
+   "file": "stills/v6_dhsp_p1_01.jpg",
+   "label": "A 3D self-prior first"
+  },
+  {
+   "file": "stills/v6_dhsp_p1_02.jpg",
+   "label": "Why pictures"
+  },
+  {
+   "file": "stills/v6_dhsp_p1_03.jpg",
+   "label": "Flatten the skin"
+  },
+  {
+   "file": "stills/v6_dhsp_p1_04.jpg",
+   "label": "A picture of the shape"
+  },
+  {
+   "file": "stills/v6_dhsp_p1_05.jpg",
+   "label": "Painting the colours"
+  },
+  {
+   "file": "stills/v6_dhsp_p1_06.jpg",
+   "label": "The whole pipeline"
+  },
+  {
+   "file": "stills/v6_dhsp_p1_07.jpg",
+   "label": "Part 1 in one line"
+  }
+ ],
+ "v6_dhsp_p2": [
+  {
+   "file": "stills/v6_dhsp_p2_00.jpg",
+   "label": "The crumpled prior"
+  },
+  {
+   "file": "stills/v6_dhsp_p2_01.jpg",
+   "label": "The recipe stalls"
+  },
+  {
+   "file": "stills/v6_dhsp_p2_02.jpg",
+   "label": "Our fix"
+  },
+  {
+   "file": "stills/v6_dhsp_p2_03.jpg",
+   "label": "Our runs"
+  },
+  {
+   "file": "stills/v6_dhsp_p2_04.jpg",
+   "label": "Its own colour"
+  },
+  {
+   "file": "stills/v6_dhsp_p2_05.jpg",
+   "label": "On the MVS cloud"
+  },
+  {
+   "file": "stills/v6_dhsp_p2_06.jpg",
+   "label": "Against the others"
+  },
+  {
+   "file": "stills/v6_dhsp_p2_07.jpg",
+   "label": "In one line"
+  }
+ ],
+ "v7_nksr": [
+  {
+   "file": "stills/v7_nksr_00.jpg",
+   "label": "NKSR"
+  },
+  {
+   "file": "stills/v7_nksr_01.jpg",
+   "label": "What it keeps"
+  },
+  {
+   "file": "stills/v7_nksr_02.jpg",
+   "label": "A field of bumps"
+  },
+  {
+   "file": "stills/v7_nksr_03.jpg",
+   "label": "Learned bumps"
+  },
+  {
+   "file": "stills/v7_nksr_04.jpg",
+   "label": "Only near the dots"
+  },
+  {
+   "file": "stills/v7_nksr_05.jpg",
+   "label": "The whole pipeline"
+  },
+  {
+   "file": "stills/v7_nksr_06.jpg",
+   "label": "Our runs"
+  },
+  {
+   "file": "stills/v7_nksr_07.jpg",
+   "label": "Detail level"
+  },
+  {
+   "file": "stills/v7_nksr_08.jpg",
+   "label": "On the MVS cloud"
+  },
+  {
+   "file": "stills/v7_nksr_09.jpg",
+   "label": "Its own colour"
+  },
+  {
+   "file": "stills/v7_nksr_10.jpg",
+   "label": "Against the others"
+  },
+  {
+   "file": "stills/v7_nksr_11.jpg",
+   "label": "In one line"
+  }
+ ]
+}

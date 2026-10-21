@@ -47,6 +47,7 @@ from urllib.parse import parse_qs, quote, unquote, urlencode, urlparse
 UI_ROOT = Path(__file__).resolve().parent
 SURFACE_ROOT = UI_ROOT.parent
 WEB_ROOT = UI_ROOT / "web"
+HUB_ROOT = UI_ROOT / "hub"                    # the all-in-one page: meshes, metrics, films, report, slides
 DEFAULT_DATA_ROOT = Path(os.environ.get("CV802_SP2_DATA_ROOT", f"/l/users/{os.environ.get('USER', 'user')}/cv802_sp2"))
 GPU_LOCK_DEFAULT = "/tmp/cv802_sp2_gpu.lock"
 SAFE_SEGMENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+-]{0,199}$")
@@ -63,6 +64,8 @@ MIME = {
     ".obj": "text/plain; charset=utf-8",
     ".mtl": "text/plain; charset=utf-8",
     ".txt": "text/plain; charset=utf-8",
+    ".pdf": "application/pdf",
+    ".mp4": "video/mp4",
     ".log": "text/plain; charset=utf-8",
     ".md": "text/plain; charset=utf-8",
     ".ply": "application/octet-stream",
@@ -1061,6 +1064,17 @@ def build_handler(app: App) -> type[BaseHTTPRequestHandler]:
                      "/viewer.html": "viewer.html", "/compare": "compare.html", "/compare.html": "compare.html"}
             if path in pages:
                 self.send_file(WEB_ROOT / pages[path])
+            elif path == "/hub":
+                self.send_response(HTTPStatus.MOVED_PERMANENTLY)
+                self.send_header("Location", "/hub/")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+            elif path.startswith("/hub/"):
+                target = (HUB_ROOT / (path[len("/hub/"):] or "index.html")).resolve()
+                if within(target, HUB_ROOT.resolve()) and target.is_file():
+                    self.send_file(target, cache="no-cache" if target.suffix == ".html" else "public, max-age=3600")
+                else:
+                    self.not_found()
             elif path.startswith("/static/"):
                 target = (WEB_ROOT / path[len("/static/"):]).resolve()
                 if within(target, WEB_ROOT.resolve()) and target.is_file():

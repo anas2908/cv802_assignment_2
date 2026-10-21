@@ -1,794 +1,466 @@
-"""Presentation for CV802 Sub-project 2 (16:9 .pptx with speaker notes), generated from results.json + figs/.
+"""CV802 Assignment 2 deck in the plain style of the Assignment 1 slides (white, Arial, black titles, grey text).
 
-python build_slides.py      (docs env: python-pptx, matplotlib)  ->  slides/CV802_SP2_surface_extraction.pptx
-then soffice --headless --convert-to pdf (build_all.sh). Pending results (still training) appear as red "pending".
-"""
+python build_slides.py [out.pptx]     (docs env: python-pptx, Pillow; run from anywhere)
+Inputs: assets/ (cropped figures, close-ups, film meta), ../figs/ (result grids), the film stills and metrics of the
+all-in-one page (surface/ui/hub/stills, surface/ui/hub/data/results.json)."""
 import json
 import sys
 from pathlib import Path
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
-from PIL import Image  # noqa: E402
-from pptx import Presentation  # noqa: E402
-from pptx.dml.color import RGBColor  # noqa: E402
-from pptx.enum.shapes import MSO_CONNECTOR, MSO_SHAPE  # noqa: E402
-from pptx.enum.text import MSO_ANCHOR, PP_ALIGN  # noqa: E402
-from pptx.util import Emu, Inches, Pt  # noqa: E402
+from PIL import Image
+from pptx import Presentation
+from pptx.chart.data import CategoryChartData, XyChartData
+from pptx.dml.color import RGBColor
+from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION, XL_LABEL_POSITION, XL_MARKER_STYLE
+from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+from pptx.oxml.ns import qn
+from pptx.util import Inches, Pt, Emu
+from lxml import etree
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parent))
-import resmodel as rm  # noqa: E402
-
-FIGS = HERE.parent / "figs"
-EQ = HERE / "eq"
-EQ.mkdir(exist_ok=True)
-OUT = HERE / "CV802_SP2_surface_extraction.pptx"
-
-NAVY = RGBColor(0x17, 0x24, 0x3A)
-INK = RGBColor(0x2B, 0x2F, 0x3A)
-GREY = RGBColor(0x6B, 0x72, 0x80)
-LIGHT = RGBColor(0xF1, 0xF4, 0xF7)
-ACCENT = RGBColor(0x1E, 0x7B, 0x5C)      # same green as the viewer UI
-ACCENT2 = RGBColor(0xD9, 0x82, 0x2B)
-RED = RGBColor(0xB0, 0x3A, 0x3A)
-WHITE = RGBColor(0xFF, 0xFF, 0xFF)
-FONT = "Arial"
+HUB = HERE.parents[2] / "ui" / "hub"
+OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else HERE / "CV802_SP2_surface_extraction.pptx"
+A = HERE / "assets"                         # prepared images
+F = HERE.parent / "figs"
+STILLS = HUB / "stills"                     # one still per film scene
+RES = json.load(open(HUB / "data" / "results.json"))   # best runs per input
+BLACK, GREY, LINE = RGBColor(0, 0, 0), RGBColor(0x59, 0x59, 0x59), RGBColor(0xBF, 0xC5, 0xCC)
+PIE = ["4285F4", "DB4437", "F4B400", "0F9D58", "AB47BC", "00ACC1", "FF7043", "9E9D24", "5C6BC0"]
 
 prs = Presentation()
-prs.slide_width, prs.slide_height = Inches(13.333), Inches(7.5)
+prs.slide_width, prs.slide_height = Inches(10), Inches(5.625)
 BLANK = prs.slide_layouts[6]
-SW, SH = 13.333, 7.5
-state = {"n": 0}
+count = [0]
 
 
-# ------------------------------------------------------------------ helpers
-def eq_png(name, tex, size=26, color="#17243A"):
-    p = EQ / f"{name}.png"
-    fig = plt.figure(figsize=(0.01, 0.01))
-    fig.text(0, 0, f"${tex}$", fontsize=size, color=color)
-    fig.savefig(p, dpi=300, transparent=True, bbox_inches="tight", pad_inches=0.04)
-    plt.close(fig)
-    return p
-
-
-def text(slide, x, y, w, h, paras, size=18, color=INK, bold=False, align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.TOP,
-         font=FONT, spacing=1.08, after=6):
-    """paras: str or list of str / (str, level) / dict(text, level, size, color, bold). '**x**' marks bold runs."""
+def text(slide, s, x, y, w, h, size=20, color=GREY, bold=False, align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.TOP):
     tb = slide.shapes.add_textbox(Inches(x), Inches(y), Inches(w), Inches(h))
-    tf = tb.text_frame
-    tf.word_wrap = True
-    tf.vertical_anchor = anchor
-    tf.margin_left = tf.margin_right = Inches(0.04)
-    tf.margin_top = tf.margin_bottom = Inches(0.02)
-    if isinstance(paras, (str, dict)):
-        paras = [paras]
-    first = True
-    for p in paras:
-        if isinstance(p, tuple):
-            p = {"text": p[0], "level": p[1]}
-        elif isinstance(p, str):
-            p = {"text": p}
-        par = tf.paragraphs[0] if first else tf.add_paragraph()
-        first = False
-        lvl = p.get("level", 0)
-        par.alignment = p.get("align", align)
-        par.line_spacing = spacing
-        par.space_after = Pt(p.get("after", after))
-        sz = p.get("size", size - 2 * lvl)
-        t = p["text"]
-        bullet = p.get("bullet", lvl > 0 or p.get("b", False))
-        if bullet:
-            t = ("•  " if lvl <= 1 else "–  ") + t
-            par.level = 0
-            if lvl >= 1:
-                tf_indent = Inches(0.28 * lvl)
-                par._pPr.set("marL", str(int(tf_indent + Inches(0.22))))
-                par._pPr.set("indent", str(-int(Inches(0.22))))
-        parts = t.split("**")
-        for i, part in enumerate(parts):
-            if not part:
-                continue
-            r = par.add_run()
-            r.text = part
-            r.font.name = p.get("font", font)
-            r.font.size = Pt(sz)
-            r.font.bold = (i % 2 == 1) or p.get("bold", bold)
-            r.font.color.rgb = p.get("color", color) if i % 2 == 0 else p.get("hl", NAVY)
+    tf = tb.text_frame; tf.word_wrap = True; tf.vertical_anchor = anchor
+    tf.margin_left = tf.margin_right = Inches(0.05); tf.margin_top = tf.margin_bottom = Inches(0.02)
+    for i, line in enumerate(s.split("\n")):
+        p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+        p.alignment = align
+        r = p.add_run(); r.text = line
+        r.font.name = "Arial"; r.font.size = Pt(size); r.font.color.rgb = color; r.font.bold = bold
     return tb
 
 
-def rect(slide, x, y, w, h, fill=LIGHT, line=None, shape=MSO_SHAPE.ROUNDED_RECTANGLE, radius=0.08):
-    s = slide.shapes.add_shape(shape, Inches(x), Inches(y), Inches(w), Inches(h))
-    s.fill.solid()
-    s.fill.fore_color.rgb = fill
-    if line is None:
-        s.line.fill.background()
-    else:
-        s.line.color.rgb = line
-        s.line.width = Pt(1.25)
-    if shape == MSO_SHAPE.ROUNDED_RECTANGLE:
-        s.adjustments[0] = radius
-    s.shadow.inherit = False
-    return s
-
-
-def box(slide, x, y, w, h, title, body=None, fill=LIGHT, tcolor=NAVY, size=15, bsize=12.5, line=None):
-    rect(slide, x, y, w, h, fill=fill, line=line)
-    paras = [{"text": title, "bold": True, "size": size, "color": tcolor, "after": 2}]
-    if body:
-        for b in ([body] if isinstance(body, str) else body):
-            paras.append({"text": b, "size": bsize, "color": INK if fill != NAVY else WHITE, "after": 1})
-    text(slide, x + 0.08, y + 0.05, w - 0.16, h - 0.1, paras, anchor=MSO_ANCHOR.MIDDLE, align=PP_ALIGN.CENTER)
-
-
-def arrow(slide, x1, y1, x2, y2, color=GREY, width=2.0):
-    c = slide.shapes.add_connector(MSO_CONNECTOR.STRAIGHT, Inches(x1), Inches(y1), Inches(x2), Inches(y2))
-    c.line.color.rgb = color
-    c.line.width = Pt(width)
-    ln = c.line._get_or_add_ln()
-    from pptx.oxml.ns import qn
-    tail = ln.makeelement(qn("a:tailEnd"), {"type": "triangle", "w": "med", "len": "med"})
-    ln.append(tail)
-    return c
-
-
-def image(slide, path, x, y, w=None, h=None, align="center"):
-    """Place an image inside the box (x, y, w, h) keeping its aspect ratio."""
-    path = Path(path)
-    iw, ih = Image.open(path).size
-    if w is not None and h is not None:
-        s = min(w / iw, h / ih)
-        pw, ph = iw * s, ih * s
-        ox = x + (w - pw) / 2 if align == "center" else (x if align == "left" else x + w - pw)
-        oy = y + (h - ph) / 2
-    elif w is not None:
-        pw, ph, ox, oy = w, w * ih / iw, x, y
-    else:
-        pw, ph, ox, oy = h * iw / ih, h, x, y
-    return slide.shapes.add_picture(str(path), Inches(ox), Inches(oy), Inches(pw), Inches(ph))
-
-
-def new_slide(title, sub=None, notes="", section=None):
+def slide(title=None, number=True):
     s = prs.slides.add_slide(BLANK)
-    state["n"] += 1
-    rect(s, 0, 0, SW, 0.09, fill=ACCENT, shape=MSO_SHAPE.RECTANGLE)
-    rect(s, 0.45, 0.42, 0.09, 0.62, fill=ACCENT, shape=MSO_SHAPE.RECTANGLE)
-    text(s, 0.65, 0.3, 11.2, 0.6, {"text": title, "size": 30, "bold": True, "color": NAVY})
-    if sub:
-        text(s, 0.67, 0.86, 11.8, 0.4, {"text": sub, "size": 15, "color": GREY})
-    if section:
-        text(s, 10.3, 0.2, 2.6, 0.3, {"text": section.upper(), "size": 10, "color": ACCENT, "bold": True},
-             align=PP_ALIGN.RIGHT)
-    text(s, 0.45, 7.08, 8, 0.3, {"text": "CV802 · Sub-project 2 · Surface Extraction · Anas Khan", "size": 10,
-                                 "color": GREY})
-    text(s, 11.9, 7.08, 1.0, 0.3, {"text": str(state["n"]), "size": 10, "color": GREY}, align=PP_ALIGN.RIGHT)
-    s.notes_slide.notes_text_frame.text = notes.strip()
+    count[0] += 1
+    if title:
+        text(s, title, 0.42, 0.3, 9.2, 0.75, size=32, color=BLACK)
+    if number:
+        text(s, str(count[0]), 9.25, 5.22, 0.5, 0.3, size=11, color=GREY, align=PP_ALIGN.RIGHT)
     return s
 
 
-def table(slide, x, y, w, rows, col_w=None, size=12, header_fill=NAVY, row_h=0.32, bold_cells=(), red_cells=(),
-          first_col_bold=True, zebra=True):
-    nr, nc = len(rows), len(rows[0])
-    gt = slide.shapes.add_table(nr, nc, Inches(x), Inches(y), Inches(w), Inches(row_h * nr))
-    t = gt.table
-    if col_w:
-        tot = sum(col_w)
-        for i, cw in enumerate(col_w):
-            t.columns[i].width = Emu(int(Inches(w) * cw / tot))
-    for r in range(nr):
-        t.rows[r].height = Inches(row_h)
-        for c in range(nc):
-            cell = t.cell(r, c)
-            cell.margin_left = cell.margin_right = Inches(0.05)
-            cell.margin_top = cell.margin_bottom = Inches(0.01)
-            cell.vertical_anchor = MSO_ANCHOR.MIDDLE
-            v = rows[r][c]
-            tf = cell.text_frame
-            tf.text = ""
-            par = tf.paragraphs[0]
-            par.alignment = PP_ALIGN.LEFT if c == 0 else PP_ALIGN.CENTER
-            run = par.add_run()
-            run.text = str(v)
-            run.font.name = FONT
-            run.font.size = Pt(size)
-            cell.fill.solid()
-            if r == 0:
-                cell.fill.fore_color.rgb = header_fill
-                run.font.color.rgb = WHITE
-                run.font.bold = True
+def pic(s, path, x, y, w=None, h=None):
+    """Place an image inside the box (x, y, w, h) keeping its aspect ratio; returns its (x, y, w, h)."""
+    iw, ih = Image.open(path).size
+    if w and h:
+        sc = min(w / iw, h / ih); pw, ph = iw * sc, ih * sc; x, y = x + (w - pw) / 2, y + (h - ph) / 2
+    elif w:
+        pw, ph = w, w * ih / iw
+    else:
+        pw, ph = h * iw / ih, h
+    s.shapes.add_picture(str(path), Inches(x), Inches(y), Inches(pw), Inches(ph))
+    return x, y, pw, ph
+
+
+def border(cell, color="BFC5CC", width=9525):
+    tcPr = cell._tc.get_or_add_tcPr()
+    for tag in ("a:lnL", "a:lnR", "a:lnT", "a:lnB"):
+        ln = etree.SubElement(tcPr, qn(tag), w=str(width), cap="flat", cmpd="sng", algn="ctr")
+        sf = etree.SubElement(ln, qn("a:solidFill")); etree.SubElement(sf, qn("a:srgbClr"), val=color)
+        etree.SubElement(ln, qn("a:prstDash"), val="solid")
+
+
+def table(s, rows, x, y, widths, size=12, row_h=0.3, align=None, fills=None, merge=()):
+    t = s.shapes.add_table(len(rows), len(rows[0]), Inches(x), Inches(y), Inches(sum(widths)), Inches(row_h * len(rows))).table
+    tblPr = t._tbl.tblPr
+    for k in ("firstRow", "bandRow"):
+        tblPr.set(k, "0")
+    style = tblPr.find(qn("a:tableStyleId"))
+    if style is not None:
+        style.text = "{5940675A-B579-460E-94D1-54222C63F5DA}"   # "No Style, Table Grid"
+    for j, w in enumerate(widths):
+        t.columns[j].width = Inches(w)
+    for i, row in enumerate(rows):
+        t.rows[i].height = Inches(row_h)
+        for j, val in enumerate(row):
+            c = t.cell(i, j); border(c)
+            if fills and (i, j) in fills:
+                c.fill.solid(); c.fill.fore_color.rgb = RGBColor.from_string(fills[(i, j)])
             else:
-                cell.fill.fore_color.rgb = LIGHT if (zebra and r % 2 == 0) else WHITE
-                run.font.color.rgb = INK
-                run.font.bold = (c == 0 and first_col_bold) or (r, c) in bold_cells
-                if (r, c) in red_cells or str(v) == "pending":
-                    run.font.color.rgb = RED
-                    run.font.italic = True
+                c.fill.background()
+            c.margin_left = c.margin_right = Inches(0.08); c.margin_top = c.margin_bottom = Inches(0.03)
+            c.vertical_anchor = MSO_ANCHOR.MIDDLE
+            tf = c.text_frame; tf.word_wrap = True
+            p = tf.paragraphs[0]; p.text = ""
+            p.alignment = (align[j] if align else (PP_ALIGN.LEFT if j == 0 else PP_ALIGN.RIGHT))
+            r = p.add_run(); r.text = str(val)
+            r.font.name = "Arial"; r.font.size = Pt(size); r.font.bold = True; r.font.color.rgb = BLACK
+    for r0, c0, r1, c1 in merge:              # group headers, centred
+        t.cell(r0, c0).merge(t.cell(r1, c1))
+        t.cell(r0, c0).text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
     return t
 
 
-def best_cells(rows, cols_hi):
-    """(row, col) of the best value per column; cols_hi: {col: True if higher is better}."""
-    out = set()
-    for c, hi in cols_hi.items():
-        vals = []
-        for r in range(1, len(rows)):
-            try:
-                vals.append((float(str(rows[r][c]).rstrip("%")), r))
-            except ValueError:
-                pass
-        if vals:
-            b = max(vals)[0] if hi else min(vals)[0]
-            out |= {(r, c) for v, r in vals if v == b}
+def arrow(s, x1, y1, x2, y2):
+    ln = s.shapes.add_connector(1, Inches(x1), Inches(y1), Inches(x2), Inches(y2))
+    ln.line.color.rgb = GREY; ln.line.width = Pt(1.25)
+    etree.SubElement(ln.line._get_or_add_ln(), qn("a:tailEnd"), type="triangle", w="med", len="med")
+
+
+def pie(s, title, cats, vals, x, y, w, h, fmt='0'):
+    cd = CategoryChartData(); cd.categories = cats; cd.add_series(title, vals)
+    ch = s.shapes.add_chart(XL_CHART_TYPE.PIE, Inches(x), Inches(y), Inches(w), Inches(h), cd).chart
+    ch.has_title = True; ch.chart_title.text_frame.text = title
+    tp = ch.chart_title.text_frame.paragraphs[0]; tp.runs[0].font.size = Pt(14); tp.runs[0].font.name = "Arial"; tp.runs[0].font.bold = False; tp.runs[0].font.color.rgb = GREY
+    ch.has_legend = True; ch.legend.position = XL_LEGEND_POSITION.RIGHT; ch.legend.include_in_layout = False
+    ch.legend.font.size = Pt(11); ch.legend.font.name = "Arial"; ch.legend.font.color.rgb = GREY
+    plot = ch.plots[0]
+    for i, pt in enumerate(plot.series[0].points):
+        pt.format.fill.solid(); pt.format.fill.fore_color.rgb = RGBColor.from_string(PIE[i % len(PIE)])
+        pt.format.line.color.rgb = RGBColor(255, 255, 255)
+    plot.has_data_labels = True
+    dl = plot.data_labels; dl.number_format = fmt; dl.number_format_is_linked = False; dl.show_value = True
+    dl.font.size = Pt(11); dl.font.name = "Arial"; dl.font.color.rgb = RGBColor(255, 255, 255); dl.font.bold = True
+    dl.position = XL_LABEL_POSITION.CENTER
+    return ch
+
+
+def bars(s, title, cats, vals, x, y, w, h, fmt='0.0'):
+    cd = CategoryChartData(); cd.categories = cats; cd.add_series(title, vals)
+    ch = s.shapes.add_chart(XL_CHART_TYPE.BAR_CLUSTERED, Inches(x), Inches(y), Inches(w), Inches(h), cd).chart
+    ch.has_title = True; ch.chart_title.text_frame.text = title
+    tp = ch.chart_title.text_frame.paragraphs[0]; tp.runs[0].font.size = Pt(14); tp.runs[0].font.name = "Arial"; tp.runs[0].font.bold = False; tp.runs[0].font.color.rgb = GREY
+    ch.has_legend = False
+    plot = ch.plots[0]; plot.gap_width = 60
+    ser = plot.series[0]; ser.format.fill.solid(); ser.format.fill.fore_color.rgb = RGBColor.from_string(PIE[0])
+    plot.has_data_labels = True; dl = plot.data_labels; dl.number_format = fmt; dl.number_format_is_linked = False
+    dl.font.size = Pt(10); dl.font.name = "Arial"; dl.font.color.rgb = GREY; dl.position = XL_LABEL_POSITION.OUTSIDE_END
+    ca, va = ch.category_axis, ch.value_axis
+    ca.tick_labels.font.size = Pt(11); ca.tick_labels.font.name = "Arial"; ca.tick_labels.font.color.rgb = GREY
+    ca.format.line.color.rgb = LINE; ca.reverse_order = True
+    va.visible = False; va.has_major_gridlines = False
+    return ch
+
+
+def scatter(s, title, pts, x, y, w, h, xtitle, xfmt, xmin, xmax):
+    """pts: [(label, x value, F@1%, label position)], one labelled point per method; log x axis."""
+    cd = XyChartData()
+    for lab, xv, yv, _ in pts:
+        cd.add_series(lab).add_data_point(xv, yv)
+    ch = s.shapes.add_chart(XL_CHART_TYPE.XY_SCATTER, Inches(x), Inches(y), Inches(w), Inches(h), cd).chart
+    ch.has_title = True; ch.chart_title.text_frame.text = title
+    tp = ch.chart_title.text_frame.paragraphs[0]; tp.runs[0].font.size = Pt(14); tp.runs[0].font.name = "Arial"; tp.runs[0].font.bold = False; tp.runs[0].font.color.rgb = GREY
+    ch.has_legend = False
+    for i, (ser, (lab, xv, yv, pos)) in enumerate(zip(ch.plots[0].series, pts)):
+        ser.marker.style = XL_MARKER_STYLE.CIRCLE; ser.marker.size = 10
+        ser.marker.format.fill.solid(); ser.marker.format.fill.fore_color.rgb = RGBColor.from_string(PIE[i % len(PIE)])
+        ser.marker.format.line.color.rgb = RGBColor(255, 255, 255)
+        ser.format.line.fill.background()
+        dl = ser.points[0].data_label; dl.has_text_frame = True; dl.text_frame.text = lab; dl.position = pos
+        r = dl.text_frame.paragraphs[0].runs[0]; r.font.size = Pt(10); r.font.name = "Arial"; r.font.color.rgb = GREY
+    for ax, t, fmt, lo, hi in ((ch.category_axis, xtitle, xfmt, xmin, xmax), (ch.value_axis, "F@1% ↑", "0.00", 0.8, 1.0)):
+        ax.minimum_scale, ax.maximum_scale = lo, hi
+        ax.has_major_gridlines = True; ax.major_gridlines.format.line.color.rgb = RGBColor(0xE3, 0xE6, 0xEA)
+        ax.format.line.color.rgb = LINE
+        ax.tick_labels.number_format = fmt; ax.tick_labels.number_format_is_linked = False
+        ax.tick_labels.font.size = Pt(10); ax.tick_labels.font.name = "Arial"; ax.tick_labels.font.color.rgb = GREY
+        ax.has_title = True; ax.axis_title.text_frame.text = t
+        r = ax.axis_title.text_frame.paragraphs[0].runs[0]; r.font.size = Pt(11); r.font.name = "Arial"; r.font.bold = False; r.font.color.rgb = GREY
+    ch.value_axis.major_unit = 0.05
+    lb = etree.Element(qn("c:logBase")); lb.set("val", "10")
+    ch.category_axis._element.find(qn("c:scaling")).insert(0, lb)
+    return ch
+
+
+GREEN, BLUE = "D9EAD3", "CFE2F3"
+
+
+def num(v):
+    v = str(v).replace(",", "").strip()
+    for unit, k in (("min", 60), ("h", 3600), ("s", 1)):
+        if v.endswith(" " + unit):
+            return float(v[: -len(unit) - 1]) * k
+    return float(v)
+
+
+def rank_fills(rows, cols, start=1):
+    """cols: {column index: +1 higher is better / -1 lower is better}; rows before `start` are headers.
+    Best value(s) green, second best blue."""
+    out = {}
+    for j, sign in cols.items():
+        vals = sorted({num(r[j]) for r in rows[start:]}, reverse=(sign > 0))
+        for i, r in enumerate(rows[start:], start):
+            v = num(r[j])
+            if v == vals[0]: out[(i, j)] = GREEN
+            elif len(vals) > 1 and v == vals[1]: out[(i, j)] = BLUE
     return out
 
 
-V = "vggsfm"
-g = lambda rid, ds=V: rm.run(ds, rid)
-P = lambda ds: rm.best(ds, "poisson")
+def legend(s):
+    from pptx.enum.shapes import MSO_SHAPE
+    for k, (col, lab) in enumerate([(GREEN, "best"), (BLUE, "second best")]):
+        x = 6.9 + k * 1.15
+        b = s.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(x), Inches(0.62), Inches(0.2), Inches(0.2))
+        b.fill.solid(); b.fill.fore_color.rgb = RGBColor.from_string(col); b.line.color.rgb = LINE; b.shadow.inherit = False
+        text(s, lab, x + 0.25, 0.55, 1.0, 0.35, size=12)
 
-# ------------------------------------------------------------------ equations
-E_POI = eq_png("poisson", r"\left(-\Delta+\beta\,S^{\top}WS\right)\chi\;=\;-\nabla\cdot\mathbf{V}\;+\;\beta\,S^{\top}W\,c", 28)
-E_MST = eq_png("mst", r"w_{ij}=1-|\mathbf{n}_i\cdot\mathbf{n}_j|", 22)
-E_TEX = eq_png("tex", r"c(t)=\frac{\sum_k w_k^{8}\,g_k\,I_k(\pi_k(\mathbf{x}_t))}{\sum_k w_k^{8}},\qquad "
-                      r"w_k=\cos^{4}\theta_k\,\left(\frac{d}{z_k}\right)^{2}", 24)
-E_CD = eq_png("cd", r"\mathrm{CD}=\frac{1}{2}\left(\frac{1}{|M|}\sum_{m\in M}\min_{p\in P}\|m-p\|"
-                    r"+\frac{1}{|P|}\sum_{p\in P}\min_{m\in M}\|p-m\|\right)", 22)
-E_F = eq_png("fscore", r"F_\tau=\frac{2\,\mathrm{Pr}\,\mathrm{Re}}{\mathrm{Pr}+\mathrm{Re}},\quad"
-                       r"\mathrm{Pr}=\frac{|\{m:d(m,P)<\tau\}|}{|M|},\quad \mathrm{Re}=\frac{|\{p:d(p,M)<\tau\}|}{|P|}", 20)
-E_NC = eq_png("nc", r"\mathrm{NC}=\frac{1}{|M|}\sum_{m}\left|\mathbf{n}_{\mathrm{face}}(m)\cdot\mathbf{n}_{P}(\mathrm{nn}(m))\right|", 20)
-E_IER = eq_png("ier", r"\mathrm{IER}(p,q)=\frac{d_{\mathrm{geodesic}}(p,q)}{\|p-q\|}", 24)
-E_P2M = eq_png("p2m", r"\mathcal{L}=\mathcal{L}_{\mathrm{Chamfer}}(\mathrm{mesh},P)\;(+\;\mathrm{normal\ term}),\quad"
-                      r"\mathrm{mesh}=M_0+\mathrm{CNN}_\theta(z)", 22)
 
-# ------------------------------------------------------------------ 1 title
-s = prs.slides.add_slide(BLANK)
-state["n"] += 1
-rect(s, 0, 0, SW, SH, fill=NAVY, shape=MSO_SHAPE.RECTANGLE)
-rect(s, 0, 4.55, SW, 2.95, fill=WHITE, shape=MSO_SHAPE.RECTANGLE)
-image(s, FIGS / "fig_strip_vggsfm.jpg", 0.3, 4.62, 12.73, 2.8)
-text(s, 0.8, 0.85, 11.8, 0.4, {"text": "CV802 ADVANCED 3D COMPUTER VISION · SUB-PROJECT 2: SURFACE EXTRACTION",
-                               "size": 14, "bold": True, "color": RGBColor(0x8F, 0xD9, 0xBC)})
-text(s, 0.8, 1.35, 11.8, 1.6, {"text": "From Coloured Points to Printable Textured Meshes", "size": 42, "bold": True,
-                               "color": WHITE})
-text(s, 0.8, 2.95, 11.8, 0.9, {"text": "Eight surface-reconstruction methods, one shared pipeline, our own screened "
-                               "Poisson and photo texturing, and a mesh viewer", "size": 19,
-                               "color": RGBColor(0xD5, 0xDC, 0xE6)})
-text(s, 0.8, 3.9, 11.8, 0.5, {"text": "Anas Khan  ·  MBZUAI", "size": 18, "bold": True, "color": WHITE})
-s.notes_slide.notes_text_frame.text = (
-    "Hello, I am Anas. Sub-project 2 takes the coloured point cloud from Sub-project 1 and turns it into a textured "
-    "mesh. The strip at the bottom is the whole story: the input points on the left, then the best mesh of each of the "
-    "eight methods, each shown textured and as plain shaded geometry. In the next minutes: the task, our pipeline, "
-    "the methods and what we had to change to make them work on a real scan, results on three inputs, the viewer and "
-    "3D printing.")
+PANELS = json.load(open(A / "panels.json"))
 
-# ------------------------------------------------------------------ 2 task
-s = new_slide("The task", "Week-5 brief (slides 5-7): 3D points with colour  ->  textured mesh (.obj), bonus for a mesh viewer",
-              section="Task", notes="""
-The brief from the Week-5 lab slides: the input is the coloured point cloud from Sub-project 1 (slide 5), the output is
-a textured 3D mesh in .obj format, with a bonus for a mesh viewer (slide 6). Slide 7 lists five example methods plus
-'your own novel methods'. We implemented all five: Poisson from scratch because the slide says do not use the API,
-then IER, Point2Mesh, MeshAnything and DHSP using the official code. As the slide notes, the first four give shape
-only, so texture is our job: we built a photo-projection texturer. We also added three recent methods, NKSR, Shape As
-Points and 2D Gaussian Splatting, and we deliver the viewer and printable meshes.""")
-image(s, FIGS / "input_vggsfm_front.png", 0.55, 1.45, 2.6, 5.4)
-text(s, 3.05, 3.6, 0.6, 0.6, {"text": "→", "size": 40, "color": ACCENT, "bold": True})
-image(s, Path(g("poisson-v2-r384-a4-t2-phototex2")["dir"]) / "preview_front.png", 3.55, 1.45, 2.6, 5.4)
-text(s, 0.6, 6.7, 5.6, 0.35, [{"text": "input: 138,677 coloured points   →   output: textured .obj", "size": 12,
-                                "color": GREY, "align": PP_ALIGN.CENTER}])
-rows = [["Method on slide 7", "What we did", "Colour"],
-        ["Poisson (DO NOT USE API)", "own implementation, GPU", "our texturing"],
-        ["IER (ECCV'20)", "official code + weights", "our texturing"],
-        ["Point2Mesh (SIGGRAPH'20)", "official code", "our texturing"],
-        ["MeshAnything (2024)", "official V1 / V2 + weights", "our texturing"],
-        ["DHSP (ICCV'21)", "official code, full pipeline", "own (2D prior)"],
-        ["Your own novel methods", "photo texturing, DHSP fix, viewer", "-"],
-        ["Extra (beyond slides)", "NKSR, SAP, 2DGS", "our texturing"]]
-table(s, 6.55, 1.5, 6.35, rows, col_w=[2.5, 2.6, 1.4], size=12.5, row_h=0.42)
-text(s, 6.55, 5.05, 6.35, 1.8, [
-    {"text": "**Deliverables (slide 8):** presentation · code · one-page document", "size": 14, "b": True},
-    {"text": "**Bonus:** browser mesh viewer, side-by-side, CPU only", "size": 14, "b": True},
-    {"text": "**Our goal:** best quality, 3D-printable", "size": 14, "b": True}])
 
-# ------------------------------------------------------------------ 3 inputs
-s = new_slide("Three input clouds of the same person", "All from Sub-project 1; every method runs on all three",
-              section="Inputs", notes="""
-We use the light-shirt capture in three versions. The main input is VGGSfM: 139 thousand points, already cleaned in
-Sub-project 1 by projecting the points into the person masks. The second is the COLMAP MVS cloud: 3.5 times denser,
-with normals from PatchMatch, but with silhouette streaks and floating outliers, you can see the spray around the
-legs and head. The third is the same MVS cloud with 404 floating points removed by our cleanup script, which keeps
-the legs intact. Same pipeline and metrics for all three, so differences come from the input alone.""")
-image(s, FIGS / "fig_inputs.jpg", 0.5, 1.4, 12.3, 4.25)
-rows = [["Input", "Points", "Normals", "Character"],
-        ["VGGSfM (main)", "138,677", "ours (PCA + MST)", "clean, sparser, mask-cleaned"],
-        ["COLMAP MVS", "487,451", "COLMAP PatchMatch", "dense; streaks + floating outliers"],
-        ["MVS-clean", "487,047", "COLMAP PatchMatch", "404 floaters removed (clean_cloud.py)"]]
-table(s, 0.9, 5.7, 11.5, rows, col_w=[2.2, 1.3, 2.4, 4.6], size=12.5, row_h=0.33)
+def labelled_fig(s, key, x, y, w, h, labels, size=11):
+    """A figure whose header was cropped off; one bold label and one grey line above each panel."""
+    P = PANELS[key]; ih = h - 0.5
+    px, py, pw, ph = pic(s, A / f"fig_{key}_body.jpg", x, y + 0.5, w=w, h=ih)
+    sc = pw / P["w"]
+    for (a, b), (t1, t2) in zip(P["panels"], labels):
+        cx = px + (a + b) / 2 * sc
+        text(s, t1, cx - 0.9, py - 0.5, 1.8, 0.25, size=size, color=BLACK, bold=True, align=PP_ALIGN.CENTER)
+        text(s, t2, cx - 0.9, py - 0.27, 1.8, 0.25, size=9, color=GREY, align=PP_ALIGN.CENTER)
 
-# ------------------------------------------------------------------ 4 pipeline
-s = new_slide("One pipeline for every method", "Methods only produce geometry; everything after it is shared and identical",
-              section="System", notes="""
-This is the system. Every method gets the same input and writes one file, geometry.ply. A shared finalizer then does
-everything else identically for all methods: cleans the mesh, builds a UV atlas with xatlas, textures it, computes
-the metrics against the input cloud, renders the same camera views, and writes a manifest. Because of that the
-comparison is fair. Shape-only methods are re-textured from the photos by our photo-projection step. The manifest is
-what the viewer reads, the 3D-print export makes STL files, and packaging zips viewer-sized copies for GitHub.
-Everything ran on one RTX 5000 Ada with 32 GB through Slurm, as a restartable job queue in tmux; in total about 110
-finished runs over three inputs.""")
-y0 = 1.75
-box(s, 0.45, y0 + 0.55, 1.75, 1.3, "Input cloud", ["xyz + rgb", "(+ normals)"])
-arrow(s, 2.22, y0 + 1.2, 2.55, y0 + 1.2)
-box(s, 2.57, y0 + 0.55, 1.75, 1.3, "Normals", ["PCA k=24", "MST orientation"])
-arrow(s, 4.34, y0 + 1.2, 4.67, y0 + 1.2)
-rect(s, 4.69, y0 - 0.25, 2.55, 2.9, fill=WHITE, line=ACCENT)
-text(s, 4.75, y0 - 0.2, 2.45, 0.35, {"text": "8 methods", "size": 15, "bold": True, "color": ACCENT},
-     align=PP_ALIGN.CENTER)
-for i, m in enumerate(rm.ORDER):
-    text(s, 4.8, y0 + 0.17 + i * 0.29, 2.4, 0.3, {"text": rm.SHORT[m] + (" *" if m in rm.EXTRA else ""), "size": 12.5,
-                                                  "color": INK}, align=PP_ALIGN.CENTER)
-arrow(s, 7.26, y0 + 1.2, 7.6, y0 + 1.2)
-rect(s, 7.62, y0 - 0.25, 3.0, 2.9, fill=NAVY)
-text(s, 7.7, y0 - 0.17, 2.85, 2.8, [
-    {"text": "Shared finalizer", "size": 16, "bold": True, "color": WHITE, "after": 6},
-    {"text": "clean mesh (degenerate faces)", "size": 12.5, "color": WHITE, "b": True, "after": 2},
-    {"text": "UV atlas (xatlas, 4096²)", "size": 12.5, "color": WHITE, "b": True, "after": 2},
-    {"text": "texture: photos / points / own", "size": 12.5, "color": WHITE, "b": True, "after": 2},
-    {"text": "metrics vs input cloud", "size": 12.5, "color": WHITE, "b": True, "after": 2},
-    {"text": "same-camera renders", "size": 12.5, "color": WHITE, "b": True, "after": 2},
-    {"text": "manifest.json (last)", "size": 12.5, "color": WHITE, "b": True, "after": 2}])
-for i, (t, b) in enumerate((("Mesh viewer", "three.js, side by side"), ("3D print", "180 mm STL + checks"),
-                            ("GitHub bundle", "viewer-sized zips"))):
-    yy = y0 - 0.25 + i * 1.0
-    arrow(s, 10.64, y0 + 1.2, 10.95, yy + 0.4)
-    box(s, 10.97, yy, 1.95, 0.85, t, b, fill=LIGHT, size=13.5, bsize=11)
-text(s, 0.5, 5.1, 12.3, 1.9, [
-    {"text": "**Contract:** run.sh <run_dir> → geometry.ply + method_info.json + progress.json;  finalize.sh <run_dir> → "
-             "mesh.obj / .mtl / texture, metrics.json, previews, manifest.json", "size": 13.5, "b": True},
-    {"text": "**Compute:** one RTX 5000 Ada (32 GB) through Slurm; restartable job queue in tmux with live GPU monitor; "
-             "nothing runs on the login node", "size": 13.5, "b": True},
-    {"text": "**Scale:** ≈110 finished runs over 3 inputs (ablations, seeds, texture variants); best run per method "
-             "selected automatically (select_best.py)", "size": 13.5, "b": True}])
 
-# ------------------------------------------------------------------ 5 poisson
-p2 = g("poisson-v2-r384-a4-t2")
-s = new_slide("Screened Poisson, implemented from scratch", "No Poisson / marching-cubes library: normals, solver and "
-              "mesh extraction are our own code (PyTorch tensors on the GPU)", section="Method 1", notes=f"""
-Poisson reconstruction looks for an indicator function chi that is 1 inside the person and 0 outside. Its gradient
-should equal the oriented normal field, so we splat the inward normals into a vector field V and take the divergence:
-that gives a Poisson equation, minus Laplacian chi equals minus divergence of V. The screened version from 2013 adds a
-term that pins chi to the iso-value at the sample points, which keeps fine detail and stops over-smoothing.
-Step one, normals: PCA on 24 neighbours gives a direction but not a sign; we fix the signs by walking a minimum
-spanning tree over the neighbour graph with edge cost one minus the absolute dot product, so flips propagate along
-smooth surfaces first, then flip each component outward using a local centroid vote. Step two, splat. Step three,
-solve the sparse system with Jacobi-preconditioned conjugate gradients on the GPU, coarse to fine on 96, 192, 384 cube
-grids, each level warm-starting the next. Step four, the iso-value is the weighted mean of chi at the samples and we
-extract the surface with our own marching tetrahedra, which is crack-free. Finally we trim faces more than two voxels
-from any sample, because Poisson always closes the surface. Result: {rm.fmt(p2, 'faces')} faces in {p2['seconds']:.0f}
-seconds, Chamfer {p2['cd']:.3f} percent of the diagonal, F-score {p2['f1']:.3f}. We verified the solver on a sphere.""")
-steps = [("1  Oriented normals", "PCA (k = 24) gives ±n; signs propagated along a minimum spanning tree, then each "
-          "component flipped outward (local-centroid vote)"),
-         ("2  Splat", "inward normals × local spacing² → vector field V on a 384³ grid ([1,2,1] smoothing ≈ B-spline)"),
-         ("3  Solve", "screened Poisson system, Jacobi-preconditioned CG on the GPU, coarse-to-fine 96³ → 192³ → 384³"),
-         ("4  Extract", "iso = weighted mean of χ at the samples; own marching tetrahedra (Kuhn split, welded "
-          "vertices → crack-free, consistently oriented)"),
-         ("5  Trim", "drop faces > 2 voxels from every sample, keep large components (watertight variant: no trim)")]
-for i, (t, b) in enumerate(steps):
-    yy = 1.45 + i * 0.93
-    rect(s, 0.5, yy, 6.3, 0.83, fill=LIGHT)
-    text(s, 0.62, yy + 0.04, 6.1, 0.8, [{"text": t, "size": 14.5, "bold": True, "color": ACCENT, "after": 1},
-                                        {"text": b, "size": 11.5, "color": INK}])
-image(s, E_POI, 7.1, 1.5, 5.8, 0.75)
-text(s, 7.1, 2.3, 5.8, 1.5, [
-    {"text": "χ: indicator (1 inside, 0 outside);  ∇χ ≈ V (normals)", "size": 12.5, "b": True, "after": 2},
-    {"text": "S: trilinear sampling of χ at the points;  c: iso-value", "size": 12.5, "b": True, "after": 2},
-    {"text": "β (α = 4): screening weight;  α = 0 → classic 2006 Poisson", "size": 12.5, "b": True, "after": 2},
-    {"text": "MST edge cost:", "size": 12.5, "b": True}])
-image(s, E_MST, 9.0, 3.42, 2.4, 0.4, align="left")
-rows = [["Run (VGGSfM)", "Faces", "CD %", "F@1%", "Time"],
-        ["384³, screened, trimmed", rm.fmt(p2, "faces"), f"{p2['cd']:.3f}", f"{p2['f1']:.3f}", rm.fmt(p2, "seconds")],
-        ["MVS-clean, 384³", rm.fmt(g("poisson-v2-r384-a4-t2", "mvs_clean"), "faces"),
-         f"{g('poisson-v2-r384-a4-t2', 'mvs_clean')['cd']:.3f}", f"{g('poisson-v2-r384-a4-t2', 'mvs_clean')['f1']:.3f}",
-         rm.fmt(g("poisson-v2-r384-a4-t2", "mvs_clean"), "seconds")]]
-table(s, 7.1, 4.05, 5.8, rows, col_w=[2.6, 0.9, 0.8, 0.8, 0.7], size=12, row_h=0.36)
-text(s, 7.1, 5.3, 5.8, 1.6, [
-    {"text": "**Deviation from the paper:** dense grid + cascadic CG instead of an adaptive octree + multigrid; "
-             "marching tetrahedra instead of marching cubes", "size": 12, "b": True},
-    {"text": "**Sanity check:** sphere radius error 0.0007 (selftest.py)", "size": 12, "b": True}])
+def best(ds, m):
+    return next(r for r in RES[ds]["runs"] if r["method_id"] == m)
 
-# ------------------------------------------------------------------ 6 poisson ablation
-a0, a1, a2, a4 = (g(x) for x in ("poisson-v3-r256-a0-t2", "poisson-v1-r256-a4-t2", "poisson-v2-r384-a4-t2",
-                                 "poisson-v4-r384-a4-watertight"))
-s = new_slide("Poisson: what each design choice buys", "Ablation on the VGGSfM cloud (shaded geometry)",
-              section="Method 1", notes=f"""
-Four Poisson variants. Classic Poisson without screening, alpha zero, is the smoothest: highest normal consistency but
-it loses detail and drifts off the points, F at half a percent {a0['f05']:.3f}. Adding screening at the same 256 grid
-pulls the surface onto the samples, {a1['f05']:.3f}. Going to 384 cubed adds detail and is our best, {a2['f05']:.3f}.
-The watertight variant skips trimming: almost the same accuracy, and it is closed, so it can be 3D printed. The
-trade-off you see: more detail also reproduces the noise of the SfM points, the bumpy texture on the legs.""")
-image(s, FIGS / "fig_poisson_ablation.jpg", 0.4, 1.35, 7.6, 5.6)
-rows = [["Variant", "CD %", "F@0.5%", "NC", "Faces"]]
-for r, n in ((a0, "classic, 256³"), (a1, "screened, 256³"), (a2, "screened, 384³"), (a4, "384³ watertight")):
-    rows.append([n, f"{r['cd']:.3f}", f"{r['f05']:.3f}", f"{r['nc']:.2f}", rm.fmt(r, "faces")])
-table(s, 8.25, 1.6, 4.7, rows, col_w=[1.9, 0.8, 0.9, 0.6, 0.8], size=12.5, row_h=0.4,
-      bold_cells=best_cells(rows, {1: False, 2: True, 3: True}))
-text(s, 8.25, 3.85, 4.7, 3.0, [
-    {"text": "**Screening** pins χ to the samples → +0.04 F@0.5%", "size": 13.5, "b": True},
-    {"text": "**Finer grid** → more detail, also more scan noise", "size": 13.5, "b": True},
-    {"text": "**No trimming** → closed surface for printing at almost no cost", "size": 13.5, "b": True},
-    {"text": "**NC** rewards smoothness, CD/F reward closeness: read them together", "size": 13.5, "b": True}])
 
-# ------------------------------------------------------------------ 7 IER + MeshAnything
-ier, ma_raw, ma = rm.best(V, "ier"), g("meshanything-v2-greedy"), g("meshanything-v2-mesh-mc7-greedy")
-ma_s1 = g("meshanything-v2-sample-s1")  # best raw-point run (sampling, seed 1)
-s = new_slide("Learned priors: IER and MeshAnything", "Pretrained networks only work inside their training domain",
-              section="Methods 2-4", notes=f"""
-IER, ECCV 2020: it proposes candidate triangles from k nearest neighbours and a pretrained network classifies each by
-the intrinsic-extrinsic ratio, geodesic over Euclidean distance between the vertices. Near one means the triangle lies
-on the surface, large means it jumps across a gap, for example between the arm and the chest. A greedy step keeps a
-manifold set. It was trained on 12 to 13 thousand points per shape, so we farthest-point sample 12,500 points: F
-{ier['f1']:.3f}. Its red faces in the renders show the triangles are not consistently oriented, which is why our photo
-texturing uses a two-sided mode for it.
-MeshAnything is an autoregressive transformer that writes an artist-style low-poly mesh face by face. On our raw points
-it failed, F {ma_raw['f1']:.2f} greedy and at best {ma_s1['f1']:.2f} with sampling, because it was trained on points
-sampled from clean meshes. The authors recommend passing a dense mesh through their marching-cubes path; we fed our own
-watertight Poisson mesh and got {ma['f1']:.3f} with only {ma['faces']} faces.""")
-text(s, 0.5, 1.4, 6.1, 0.4, {"text": "IER meshing (ECCV'20)", "size": 19, "bold": True, "color": ACCENT})
-text(s, 0.5, 1.85, 6.1, 2.2, [
-    {"text": "kNN candidate triangles → pretrained network scores each by", "size": 13.5, "b": True},
-    {"text": "≈1 on the surface, ≫1 across gaps (arm ↔ chest) → greedy manifold selection", "size": 13.5, "b": True}])
-image(s, E_IER, 1.0, 2.62, 4.6, 0.6)
-text(s, 0.5, 3.4, 6.1, 1.3, [
-    {"text": f"**Our fix:** FPS to the training density (12.5k pts, unit diagonal) → F@1% {ier['f1']:.3f}",
-     "size": 13.5, "b": True},
-    {"text": "**Caveat:** inconsistent winding (red faces), holes → two-sided photo texturing", "size": 13.5, "b": True}])
-text(s, 6.9, 1.4, 6.0, 0.4, {"text": "MeshAnything V2 (2024)", "size": 19, "bold": True, "color": ACCENT})
-text(s, 6.9, 1.85, 6.0, 1.3, [
-    {"text": "autoregressive transformer generates an artist mesh face by face (≤1.6k faces)", "size": 13.5, "b": True},
-    {"text": f"raw points: F@1% ≤ {ma_s1['f1']:.2f} → our Poisson mesh via the authors' --mc path: **{ma['f1']:.3f}**",
-     "size": 13.5, "b": True}])
-image(s, FIGS / "fig_meshanything.jpg", 7.3, 3.2, 5.3, 3.75)
-rows = [["MeshAnything run", "F@1%", "faces"],
-        ["V1, raw points", f"{g('meshanything-v1-greedy')['f1']:.3f}", g("meshanything-v1-greedy")["faces"]],
-        ["V2, raw points (greedy)", f"{ma_raw['f1']:.3f}", ma_raw["faces"]],
-        ["V2, raw points (sampled)", f"{ma_s1['f1']:.3f}", ma_s1["faces"]],
-        ["V1, mesh --mc", f"{g('meshanything-v1-mesh-mc-greedy')['f1']:.3f}", g("meshanything-v1-mesh-mc-greedy")["faces"]],
-        ["V2, mesh --mc 7", f"{ma['f1']:.3f}", ma["faces"]],
-        ["V2, mesh --mc 8", f"{g('meshanything-v2-mesh-mc8-greedy')['f1']:.3f}", g("meshanything-v2-mesh-mc8-greedy")["faces"]]]
-table(s, 0.6, 4.6, 5.6, rows, col_w=[2.8, 1.2, 1.2], size=12, row_h=0.34, bold_cells={(5, 1)})
+NAMES = [("poisson", "Poisson (ours)"), ("ier", "IER"), ("point2mesh", "Point2Mesh"), ("meshanything", "MeshAnything V2"),
+         ("dhsp", "DHSP"), ("nksr", "NKSR*"), ("sap", "SAP*"), ("twodgs", "2DGS*")]
+# DHSP runs in two stages; results.json records only the 3D stage, the 2D stage time comes from its queue log
+DHSP_3D, DHSP_2D = {"vggsfm": 6075, "mvs": 6699, "mvs_clean": 13277}, {"vggsfm": 1961, "mvs": 7773, "mvs_clean": 7804}
 
-# ------------------------------------------------------------------ 8 point2mesh
-p_def, p_un = g("point2mesh-v2-paper-defaults"), g("point2mesh-v3-paper-unoriented")
-s = new_slide("Self-prior: Point2Mesh", "A randomly initialised CNN, optimised on this one cloud, deforms a convex hull",
-              section="Methods 2-4", notes=f"""
-Point2Mesh needs no training data. Start from the convex hull of the points, simplified by Manifold to 2,000 faces. A
-MeshCNN with random weights predicts vertex displacements and is optimised for one shape only, with a Chamfer loss to
-the points plus a normal term; the network's own bias towards smooth, self-similar displacements is the 'self-prior'.
-Every so often the mesh is subdivided and re-made manifold, so it shrink-wraps the person. With paper defaults the
-normal term pulled the surface the wrong way where our normals point inward, F {p_def['f1']:.3f}. The paper's
-unoriented option, which only compares directions up to sign, fixed that: {p_un['f1']:.3f}. It is watertight by
-construction, so printable, but smooth and low detail. On the raw MVS cloud the floating outliers pull membranes
-out of the body; after removing them it partly recovers. The red faces mark folded triangles.""")
-image(s, FIGS / "fig_point2mesh.jpg", 0.4, 1.35, 7.8, 5.6)
-rows = [["Run", "Input", "F@1%", "CD %"],
-        ["paper defaults", "VGGSfM", f"{p_def['f1']:.3f}", f"{p_def['cd']:.2f}"],
-        ["--unoriented", "VGGSfM", f"{p_un['f1']:.3f}", f"{p_un['cd']:.2f}"],
-        ["--unoriented", "MVS", f"{g('point2mesh-v3-paper-unoriented', 'mvs')['f1']:.3f}",
-         f"{g('point2mesh-v3-paper-unoriented', 'mvs')['cd']:.2f}"],
-        ["--unoriented", "MVS-clean", f"{g('point2mesh-v3-paper-unoriented', 'mvs_clean')['f1']:.3f}",
-         f"{g('point2mesh-v3-paper-unoriented', 'mvs_clean')['cd']:.2f}"]]
-table(s, 8.4, 1.6, 4.5, rows, col_w=[1.6, 1.2, 0.8, 0.8], size=12.5, row_h=0.38, bold_cells={(2, 2), (2, 3)})
-text(s, 8.4, 3.75, 4.5, 3.2, [
-    {"text": "loss: Chamfer(mesh, points) + normal term; mesh = hull + CNN(θ) displacements", "size": 13, "b": True},
-    {"text": "hull → Manifold (2k faces) → CNN displacements → subdivide + re-manifold", "size": 13, "b": True},
-    {"text": "**Normal orientation** matters: unoriented loss +0.20 F", "size": 13, "b": True},
-    {"text": "**Outliers** break shrink-wrapping (MVS)", "size": 13, "b": True},
-    {"text": "**Watertight** by construction → printable", "size": 13, "b": True}])
 
-# ------------------------------------------------------------------ 9 DHSP
-dp, df = g("dhsp-v1"), g("dhsp-v5-lap1-remesh-optcuts")
-s = new_slide("DHSP: getting the full hybrid pipeline to run", "Deep Hybrid Self-Prior (ICCV'21): 3D mesh prior + 2D "
-              "image priors, recovers shape and colour", section="Method 5", notes=f"""
-DHSP extends Point2Mesh with 2D priors. Its README pipeline: a 3D self-prior mesh, then flatten it to a UV map with
-OptCuts, project the geometry into a 2D 'geometry image' and complete it with a deep image prior, project back, refine
-in 3D again, and finally complete a colour texture with a second 2D image prior. So it is the only listed method that
-predicts colour itself.
-The problem: the 3D prior alone already scores F {dp['f1']:.3f}, but it is crumpled, about half the neighbouring faces
-fold, normal consistency {dp['nc']:.2f}. OptCuts never converged on that surface, we stopped it after 15 hours, and with
-xatlas instead the 2D priors produced seam artifacts. Our fix: re-mesh the prior first, Manifold plus simplification to
-3,000 faces, before OptCuts, and 6,000 for the refined mesh. Then OptCuts converges in seconds and the complete
-pipeline runs. The final mesh is clean, normal consistency {df['nc']:.2f}, watertight, with DHSP's own colour; it loses
-some F-score, {df['f1']:.3f}, because it is coarser. {"The MVS versions are still training." if rm.pending_list() else
-"On the MVS inputs the refined surface has genus 2, because the arms touch the body, so OptCuts cannot cut it into a disk for the final texture atlas; there we fall back to xatlas on the same clean re-meshed surface. And honestly, on MVS the full pipeline is not better than its 3D prior: the 2D geometry prior turns MVS outliers into fins."}""")
-flow = ["3D prior", "re-mesh\n(ours)", "OptCuts\nUV", "2D geometry\nprior", "back-project\n+ 3D refine",
-        "2D texture\nprior"]
-for i, t in enumerate(flow):
-    xx = 0.5 + i * 2.1
-    rect(s, xx, 1.45, 1.8, 0.85, fill=ACCENT2 if "ours" in t else (NAVY if i in (0, 4) else LIGHT))
-    text(s, xx, 1.45, 1.8, 0.85, {"text": t, "size": 13, "bold": True,
-                                  "color": WHITE if (i in (0, 4) or "ours" in t) else NAVY},
-         align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
-    if i < len(flow) - 1:
-        arrow(s, xx + 1.82, 1.87, xx + 2.08, 1.87)
-image(s, FIGS / "fig_dhsp.jpg", 0.4, 2.5, 7.4, 4.45)
-rows = [["DHSP run (VGGSfM)", "F@1%", "NC", "WT"],
-        ["v1 3D prior only", f"{dp['f1']:.3f}", f"{dp['nc']:.2f}", "yes"],
-        ["v2 + xatlas 2D texture", f"{g('dhsp-v2-texture2d')['f1']:.3f}", f"{g('dhsp-v2-texture2d')['nc']:.2f}", "no"],
-        ["v4 re-mesh + OptCuts", f"{g('dhsp-v4-remesh-optcuts')['f1']:.3f}", f"{g('dhsp-v4-remesh-optcuts')['nc']:.2f}",
-         "yes"],
-        ["v5 + Laplacian 1", f"{df['f1']:.3f}", f"{df['nc']:.2f}", "yes"]]
-table(s, 8.0, 2.65, 4.9, rows, col_w=[2.6, 0.8, 0.7, 0.6], size=12, row_h=0.38, bold_cells={(4, 2), (3, 2)})
-mv, mc = rm.best("mvs", "dhsp"), rm.best("mvs_clean", "dhsp")
-text(s, 8.0, 4.7, 4.9, 2.3, [
-    {"text": "**Crumpled prior:** F-score high, surface folded (NC 0.65)", "size": 13, "b": True},
-    {"text": "**OptCuts:** no convergence in 15 h → converges in seconds after re-meshing", "size": 13, "b": True},
-    {"text": "**MVS / MVS-clean:** F@1% " + rm.fmt(mv, "f1", pend="pending") + " / " + rm.fmt(mc, "f1", pend="pending")
-     + ("" if rm.PENDING in (mv, mc) else " — below the 3D prior (0.98): MVS outliers become fins; final atlas by "
-        "xatlas (genus-2 surface)"), "size": 13, "b": True}])
+def seconds(ds, m):
+    return DHSP_3D[ds] + DHSP_2D[ds] if m == "dhsp" else best(ds, m)["seconds"]
 
-# ------------------------------------------------------------------ 10 extra
-nk, sp, tg = rm.best(V, "nksr"), rm.best(V, "sap"), rm.best(V, "twodgs")
-s = new_slide("Beyond the list: three recent methods", "Added to see where current methods stand on the same input",
-              section="Extra", notes=f"""
-Three recent methods. NKSR, CVPR 2023, from NVIDIA: a pretrained neural kernel field built for noisy real scans. It is
-the most accurate on the dense MVS clouds and runs in seconds, but its mesh is open and has non-manifold edges, so it is
-not printable. Shape As Points, NeurIPS 2021, makes Poisson differentiable: it optimises the oriented points
-themselves through a spectral Poisson solver, coarse to fine; the result is watertight and smooth, our cleanest
-printable mesh. 2D Gaussian Splatting, SIGGRAPH 2024, is different: it uses the photos, not only the points. Flat
-Gaussian discs are optimised to re-render the masked photos, initialised from our point cloud, and the mesh comes from
-fusing the rendered depth maps. It gives the sharpest look, F {tg['f1']:.3f}, but it is open at the boundary.""")
-image(s, FIGS / "fig_extra.jpg", 0.4, 1.35, 8.3, 4.45)
-rows = [["Method", "Idea", "F@1%", "Time", "WT"],
-        ["NKSR (CVPR'23)", "pretrained kernel field", f"{nk['f1']:.3f}", rm.fmt(nk, "seconds"), "no"],
-        ["SAP (NeurIPS'21)", "differentiable Poisson", f"{sp['f1']:.3f}", rm.fmt(sp, "seconds"), "yes"],
-        ["2DGS (SIGGRAPH'24)", "surfels fit to photos", f"{tg['f1']:.3f}", rm.fmt(tg, "seconds"), "no"]]
-table(s, 0.5, 5.9, 8.1, rows, col_w=[2.2, 2.7, 0.9, 0.9, 0.6], size=12.5, row_h=0.3)
-text(s, 8.95, 1.45, 4.0, 5.5, [
-    {"text": "NKSR", "size": 16, "bold": True, "color": ACCENT, "after": 1},
-    {"text": f"best on dense MVS (CD {rm.best('mvs_clean', 'nksr')['cd']:.2f}%), seconds; open, non-manifold", "size": 12.5},
-    {"text": "Shape As Points", "size": 16, "bold": True, "color": ACCENT, "after": 1},
-    {"text": "optimises oriented points through a spectral Poisson solver (32³ → 256³); watertight", "size": 12.5},
-    {"text": "2D Gaussian Splatting", "size": 16, "bold": True, "color": ACCENT, "after": 1},
-    {"text": "surfels fitted to the masked photos, TSDF fusion of rendered depth; sharpest appearance, uses images "
-             "rather than only points", "size": 12.5}])
 
-# ------------------------------------------------------------------ 11 texture
-pt, ptx = g("poisson-v2-r384-a4-t2"), g("poisson-v2-r384-a4-t2-phototex2")
-s = new_slide("Texture: projecting the photos onto the mesh", "Our own multi-view texturing for every shape-only method",
-              section="Our method", notes="""
-The slides say the first four methods give shape only and we must get texture ourselves. The simple baseline colours
-each texel from the nearest input points: blurry, because the points are sparse and noisy. Our method projects the
-original photos instead. Every texel of the UV atlas is rasterised to a 3D point with a normal. We project it into
-every camera from Sub-project 1, and keep the view only if the point is in front, inside the image, inside the person
-mask, facing the camera, and visible in a z-buffer of the mesh, so occluded surfaces such as the chest behind the
-crossed arms do not get arm colours. The visible views are blended with weights that favour frontal and close views,
-cos to the fourth times d over z squared, raised to the eighth power so the best view dominates and the result stays
-sharp. A per-photo gain balances exposure. Texels no photo sees keep the point colour. The lettering on the shirt
-becomes readable. Note PSNR at the points goes down slightly, because the reference is the blurry point colours.""")
-image(s, FIGS / "fig_texture.jpg", 0.4, 1.35, 8.0, 3.65)
-image(s, E_TEX, 0.6, 5.2, 7.6, 0.85)
-text(s, 0.6, 6.15, 7.8, 0.8, {"text": "I_k: photo k, π_k: its COLMAP projection, θ_k: angle normal ↔ view, z_k: depth, "
-                                      "g_k: exposure gain, d: scene diagonal", "size": 11.5, "color": GREY})
-text(s, 8.7, 1.45, 4.25, 5.5, [
-    {"text": "Per texel, per photo:", "size": 15, "bold": True, "color": ACCENT, "after": 4},
-    {"text": "in front of the camera, inside the image", "size": 13, "b": True},
-    {"text": "inside the person mask", "size": 13, "b": True},
-    {"text": "faces the camera (cos θ > 0.25)", "size": 13, "b": True},
-    {"text": "passes the z-buffer test (no occluded colour)", "size": 13, "b": True},
-    {"text": "Blend:", "size": 15, "bold": True, "color": ACCENT, "after": 4},
-    {"text": "frontal + close views win; ^8 keeps it sharp", "size": 13, "b": True},
-    {"text": "per-photo exposure gain vs point colours", "size": 13, "b": True},
-    {"text": "4096² texture; unseen texels → point colour", "size": 13, "b": True},
-    {"text": "DHSP keeps its own colour; NKSR/2DGS also get photos", "size": 13, "b": True}])
+def dur(t):
+    return f"{t:.0f} s" if t < 100 else (f"{t / 60:.0f} min" if t < 6000 else f"{t / 3600:.1f} h")
 
-# ------------------------------------------------------------------ 12 results table
-s = new_slide("Results: best run of every method on all three inputs",
-              "Measured against each input cloud (no ground-truth surface exists)", section="Results", notes="""
-The main table. Chamfer distance in percent of the bounding-box diagonal, lower is better; F-score at one percent of the
-diagonal, higher is better; normal consistency; watertight. On the VGGSfM input our Poisson has the best Chamfer and
-F-score, tied with IER, NKSR and SAP at about 0.998 to 0.999. On the dense MVS clouds NKSR is best with Chamfer 0.08
-percent. Low-poly methods, MeshAnything and DHSP, lose some F-score by construction because a 1,400 or 6,000 face
-mesh cannot follow every point. Point2Mesh is the weakest and fails on raw MVS. Red cells are still training.""")
-rows = [["Method", "Faces", "CD % ↓", "F@1% ↑", "NC ↑", "CD % ↓", "F@1% ↑", "CD % ↓", "F@1% ↑", "WT"]]
-for m in rm.ORDER:
-    rv = rm.best(V, m)
-    row = [rm.SHORT[m] + (" *" if m in rm.EXTRA else ""), rm.fmt(rv, "faces")]
-    row += [rm.fmt(rv, "cd"), rm.fmt(rv, "f1"), rm.fmt(rv, "nc", 2)]
-    for ds in ("mvs", "mvs_clean"):
-        r = rm.best(ds, m)
-        row += [rm.fmt(r, "cd", pend="pending"), rm.fmt(r, "f1", pend="pending")]
-    row.append("✓" if rv not in (None, rm.PENDING) and rv["watertight"] else "")
-    rows.append(row)
-hdr = rect(s, 0.5, 1.4, 12.35, 0.38, fill=WHITE)
-for x0, w0, t in ((2.95, 4.5, "VGGSfM (main)"), (7.45, 2.3, "MVS"), (9.75, 2.3, "MVS-clean")):
-    text(s, x0, 1.42, w0, 0.35, {"text": t, "size": 14, "bold": True, "color": ACCENT}, align=PP_ALIGN.CENTER)
-table(s, 0.5, 1.8, 12.35, rows, col_w=[2.3, 1.0, 1.15, 1.15, 0.95, 1.15, 1.15, 1.15, 1.15, 0.6], size=13.5, row_h=0.47,
-      bold_cells=best_cells(rows, {2: False, 3: True, 4: True, 5: False, 6: True, 7: False, 8: True}))
-text(s, 0.5, 6.15, 12.35, 0.8, [
-    {"text": "CD: Chamfer-L1 in % of the bbox diagonal · F@1%: F-score at 1% of the diagonal · NC: normal consistency · "
-             "WT: watertight (VGGSfM mesh) · * beyond the course list" + (" · pending: still training"
-                                                                            if rm.pending_list() else ""),
-     "size": 11.5, "color": GREY}])
 
-# ------------------------------------------------------------------ 13 qualitative
-s = new_slide("Qualitative comparison (VGGSfM)", "Top: textured · bottom: shaded geometry · red = back-facing "
-              "(inconsistently oriented) faces", section="Results", notes="""
-The same meshes as pictures, because the numbers hide a lot. Look at the shaded row. Poisson and NKSR follow every
-bump of the noisy points. IER has red triangles everywhere: they are flipped. Point2Mesh is smooth but has folded
-regions. MeshAnything is an artist-style low-poly mesh. DHSP after our fix is clean and closed. SAP is the smoothest
-closed surface. 2DGS has the most recognisable face and the cleanest shirt edges because it uses the photos.""")
-image(s, FIGS / "fig_grid_vggsfm.jpg", 0.4, 1.3, 12.5, 5.7)
+faces = lambda n: f"{n / 1e6:.2f}M" if n >= 1e6 else (f"{n / 1e3:.0f}k" if n >= 1e4 else f"{n / 1e3:.1f}k")
 
-# ------------------------------------------------------------------ 14 mvs
-s = new_slide("Denser but noisier: the MVS clouds", "MVS-clean (404 floaters removed); DHSP pending while training"
-              if rm.pending_list() else "MVS-clean (404 floaters removed)", section="Results", notes="""
-The MVS cloud is 3.5 times denser, so methods that follow the points closely, NKSR, Poisson, IER, get even lower
-Chamfer. But MVS has holes where PatchMatch found no consistent depth, the dark trousers, and those methods keep the
-holes. Watertight methods, SAP, Point2Mesh, close them but SAP grows blobs around the head from remaining outliers.
-Removing the 404 floaters mainly helps Point2Mesh, which shrink-wraps everything it sees.""")
-image(s, FIGS / "fig_grid_mvs_clean.jpg", 0.4, 1.3, 9.2, 5.7)
-text(s, 9.8, 1.5, 3.1, 5.4, [
-    {"text": "Denser input → lower CD for point-following methods (NKSR " +
-             f"{rm.best('mvs_clean', 'nksr')['cd']:.2f}%)", "size": 13, "b": True},
-    {"text": "Dark trousers: few MVS points → holes in open meshes", "size": 13, "b": True},
-    {"text": "Outliers: SAP blobs, Point2Mesh membranes (raw MVS F " +
-             f"{g('point2mesh-v3-paper-unoriented', 'mvs')['f1']:.2f}" + " → clean " +
-             f"{g('point2mesh-v3-paper-unoriented', 'mvs_clean')['f1']:.2f})", "size": 13, "b": True},
-    {"text": "VGGSfM stays the better input for closed, printable meshes", "size": 13, "b": True}])
+# 1 title
+s = slide(number=False)
+text(s, "CV802", 0.3, 1.3, 9.4, 1.0, size=54, color=BLACK, align=PP_ALIGN.CENTER)
+text(s, "Assignment 2: Surface Extraction", 0.3, 2.3, 9.4, 0.9, size=40, color=BLACK, align=PP_ALIGN.CENTER)
+text(s, "Anas Khan", 0.3, 3.75, 9.4, 0.7, size=28, color=GREY, align=PP_ALIGN.CENTER)
 
-# ------------------------------------------------------------------ 15 viewer
-s = new_slide("Bonus: the mesh viewer", "Dependency-free Python server + three.js; runs the methods and compares results",
-              section="Bonus", notes="""
-The bonus. A small web app, no dependencies beyond the Python standard library and a vendored three.js. The dashboard
-starts any method on the GPU allocation and shows progress, logs and live GPU use. The viewer shows any run textured,
-shaded, as wireframe, with the input points overlaid, and two runs side by side with synchronised cameras. The compare
-page ranks all runs by the metrics. For GitHub we package viewer-sized copies, so anyone can clone the repository and
-run one command, bash run_viewer.sh, on a CPU, without retraining.""")
-image(s, FIGS / "ui_viewer_compare.png", 0.4, 1.35, 8.4, 4.75)
-image(s, FIGS / "ui_dashboard.png", 9.0, 1.35, 3.9, 2.2)
-text(s, 9.0, 3.7, 3.9, 3.3, [
-    {"text": "textured / shaded / wireframe / input-point overlay", "size": 13, "b": True},
-    {"text": "two runs side by side, synchronised cameras", "size": 13, "b": True},
-    {"text": "dashboard: launch methods, progress, live GPU", "size": 13, "b": True},
-    {"text": "compare page: all runs ranked by metric", "size": 13, "b": True}])
-text(s, 0.4, 6.25, 8.4, 0.7, {"text": "git clone …/cv802_assignment_2  &&  bash run_viewer.sh      (CPU only, no install)",
-                              "size": 12, "bold": True, "color": ACCENT, "font": "Courier New"})
+# 2 problem statement
+s = slide("Problem Statement:")
+items = [("ps_points.png", "points"), ("ps_poisson.png", "Poisson"), ("ps_ier.png", "IER"), ("ps_point2mesh.png", "Point2Mesh"),
+         ("ps_meshanything.png", "MeshAnything"), ("ps_dhsp.png", "DHSP"), ("ps_nksr.png", "NKSR"), ("ps_sap.png", "SAP")]
+xs = [0.45] + [2.15 + k * 1.05 for k in range(7)]
+for (img, lab), x in zip(items, xs):
+    px, py, pw, ph = pic(s, A / img, x, 1.15, h=2.9)
+    text(s, lab, px + pw / 2 - 0.6, 4.12, 1.2, 0.35, size=12, align=PP_ALIGN.CENTER)
+arrow(s, 1.45, 2.6, 2.02, 2.6)
+text(s, "VGGSfM points from Assignment 1  →  textured meshes (.obj)", 0.42, 4.65, 9.2, 0.4, size=16, align=PP_ALIGN.CENTER)
 
-# ------------------------------------------------------------------ 16 printing
-s = new_slide("3D printing", "print_export.py: largest component, outward normals, +Z up, feet at z = 0, 180 mm tall",
-              section="Bonus", notes="""
-We wanted a physical print. The export script keeps the largest component, orients normals outward, puts the figure
-upright with the feet on the build plate, scales it to 180 millimetres and checks watertightness, winding, volume and
-non-manifold edges. It writes an STL for single-colour printers and a textured OBJ for colour printers. Our Poisson
-watertight variant, SAP, DHSP and Point2Mesh pass; NKSR and 2DGS are open surfaces and fail. Self-intersections are not
-checked, so a slicer repair pass is still advisable, and the crossed arms need supports.""")
-image(s, FIGS / "fig_print.jpg", 0.4, 1.35, 7.4, 4.6)
-prs_rows = [["Mesh (VGGSfM)", "Watertight", "Volume", "Printable"]]
-for rid, n in (("poisson-v4-r384-a4-watertight", "Poisson watertight"), ("sap-v1-p100k-g256-phototex2", "SAP"),
-               ("dhsp-v5-lap1-remesh-optcuts-phototex2", "DHSP (full)"),
-               ("point2mesh-v3-paper-unoriented", "Point2Mesh"), ("nksr-v2-ours-d1-mise1", "NKSR"),
-               ("twodgs-v1-30k-phototex2", "2DGS")):
-    r = g(rid)
-    pr = r.get("print") if r else None
-    if not pr:
-        continue
-    a = pr["checks_after"]
-    prs_rows.append([n, "yes" if a["watertight"] else "no", f"{a['volume_cm3']:.0f} cm³" if a.get("volume_cm3") else "-",
-                     "yes" if pr.get("printable") else "no"])
-table(s, 8.0, 1.5, 4.9, prs_rows, col_w=[2.0, 1.1, 1.0, 1.0], size=12.5, row_h=0.4)
-text(s, 8.0, 4.5, 4.9, 2.4, [
-    {"text": "STL (single colour) + OBJ/texture (colour printers)", "size": 13, "b": True},
-    {"text": "Recommended: SAP or DHSP (clean, closed); Poisson watertight for most detail", "size": 13, "b": True},
-    {"text": "Not checked: self-intersections; supports under crossed arms", "size": 13, "b": True}])
+# 3 inputs
+s = slide("Inputs")
+pic(s, F / "fig_inputs.jpg", 0.42, 1.05, w=9.16, h=4.1)
 
-# ------------------------------------------------------------------ 17 lessons
-s = new_slide("What we learned", section="Findings", notes="""
-Five lessons. One: a carefully implemented classical method is competitive; our Poisson matches pretrained networks on
-this data. Two: point-based metrics are not enough; DHSP's crumpled prior had the best-looking numbers. Always check
-normal consistency and shaded renders. Three: learned methods are tied to their training domain: point density for
-IER, mesh-like input for MeshAnything, metric scale for NKSR. Four: self-prior methods are fragile on real scans:
-normal orientation and outliers decide whether Point2Mesh works, and DHSP needed a re-meshing step. Five: texture
-quality comes from the photos, not from the points.""")
-lessons = [("A careful classical method is competitive", "our from-scratch Poisson ties the pretrained networks on "
-            "VGGSfM (F@1% 0.999, 39 s)"),
-           ("Point metrics hide surface quality", "DHSP's crumpled prior scored F@1% 0.999; check NC and shaded renders"),
-           ("Learned methods live in their training domain", "IER: point density · MeshAnything: mesh-like input "
-            "(0.51 → 0.987) · NKSR: metric scale"),
-           ("Self-priors are fragile on real scans", "Point2Mesh: normal orientation (+0.20 F) and outliers; DHSP: "
-            "re-mesh before OptCuts"),
-           ("Texture comes from the photos", "visibility-aware projection makes the lettering readable; points alone blur")]
-for i, (t, b) in enumerate(lessons):
-    yy = 1.45 + i * 1.08
-    rect(s, 0.5, yy, 0.75, 0.9, fill=ACCENT)
-    text(s, 0.5, yy, 0.75, 0.9, {"text": str(i + 1), "size": 26, "bold": True, "color": WHITE}, align=PP_ALIGN.CENTER,
-         anchor=MSO_ANCHOR.MIDDLE)
-    rect(s, 1.35, yy, 11.5, 0.9, fill=LIGHT)
-    text(s, 1.5, yy + 0.04, 11.3, 0.85, [{"text": t, "size": 17, "bold": True, "color": NAVY, "after": 1},
-                                         {"text": b, "size": 13.5, "color": INK}], anchor=MSO_ANCHOR.MIDDLE)
+# 4 methods
+s = slide("Methods")
+rows = [["Method", "Venue", "Year"], ["Screened Poisson (our implementation)", "SGP / ACM TOG", "2006 / 2013"], ["IER meshing", "ECCV", "2020"],
+        ["Point2Mesh", "SIGGRAPH", "2020"], ["MeshAnything V2", "arXiv", "2024"], ["Deep Hybrid Self-Prior (DHSP)", "ICCV", "2021"],
+        ["NKSR*", "CVPR", "2023"], ["Shape As Points (SAP)*", "NeurIPS", "2021"], ["2D Gaussian Splatting (2DGS)*", "SIGGRAPH", "2024"]]
+table(s, rows, 0.6, 1.1, [4.6, 2.3, 1.9], size=15, row_h=0.36, align=[PP_ALIGN.LEFT, PP_ALIGN.LEFT, PP_ALIGN.LEFT])
+text(s, "* beyond the course list", 0.6, 4.85, 5, 0.35, size=12)
 
-# ------------------------------------------------------------------ 18 deliverables
-s = new_slide("Deliverables and code", "Week-5 slide 8: presentation · code · one-page document", section="Summary",
-              notes="""
-Everything is on GitHub: the training and run code for every method, the shared finalizer and texturing, the viewer,
-the input clouds and the packaged meshes. The photos and model weights are not in the repository; setup scripts
-download the official code and weights. The one-page report and these slides are generated from the same results
-file, so the numbers are consistent.""")
-text(s, 0.5, 1.45, 6.2, 5.5, [
-    {"text": "github.com/anas2908/cv802_assignment_2", "size": 17, "bold": True, "color": ACCENT, "after": 10},
-    {"text": "run_viewer.sh — one command, CPU only", "size": 14, "b": True},
-    {"text": "results/ — best mesh of every method × 3 inputs (zipped)", "size": 14, "b": True},
-    {"text": "surface/methods/<method>/ — setup.sh, run.sh, pipeline.json", "size": 14, "b": True},
-    {"text": "surface/common/ — normals, texture, photo texturing, metrics, renderer", "size": 14, "b": True},
-    {"text": "surface/scripts/ — queue, finalize, print export, packaging", "size": 14, "b": True},
-    {"text": "surface/ui/ — server, dashboard, viewer, compare", "size": 14, "b": True},
-    {"text": "surface/docs/ — one-page report, slides, result tables", "size": 14, "b": True}])
-rows = [["Deliverable", "Where"],
-        ["Textured .obj for every method × input", "results/*.zip, viewer"],
-        ["Code (all methods + training)", "surface/"],
-        ["One-page report (CVPR style)", "surface/docs/deliverables/report"],
-        ["Presentation", "surface/docs/deliverables/slides"],
-        ["Mesh viewer (bonus)", "run_viewer.sh"],
-        ["3D-print files", "print/ in each watertight run"]]
-table(s, 7.0, 1.5, 5.9, rows, col_w=[3.2, 2.7], size=12.5, row_h=0.45)
+# 5 experiments
+s = slide("Experiments")
+text(s, "61 reconstructions in total", 0.42, 0.95, 9.2, 0.4, size=18)
+geo = [("MeshAnything", 15), ("DHSP", 11), ("Poisson", 10), ("Point2Mesh", 8), ("NKSR", 7), ("2DGS", 4), ("IER", 3), ("SAP", 3)]
+pie(s, "Reconstructions per method", [g[0] for g in geo], [g[1] for g in geo], 0.3, 1.45, 4.8, 3.8)
+pie(s, "Reconstructions per input", ["VGGSfM", "MVS", "MVS-clean"], [34, 13, 14], 5.1, 1.45, 4.6, 3.8)
 
-# ------------------------------------------------------------------ 19 team
-s = new_slide("Team and contributions", "Week-5 slide 9 asks for job assignments", section="Summary", notes="""
-Fill in the names and roles before presenting.""")
-rows = [["Member", "Responsibility"],
-        ["[name]", "screened Poisson from scratch: normals, solver, marching tetrahedra"],
-        ["[name]", "learned methods: IER, MeshAnything, NKSR; environments"],
-        ["[name]", "self-prior methods: Point2Mesh, DHSP (re-mesh + OptCuts pipeline), SAP, 2DGS"],
-        ["[name]", "photo texturing, metrics, mesh viewer, 3D-print export, report and slides"]]
-table(s, 0.8, 1.7, 11.7, rows, col_w=[2.2, 9.5], size=15, row_h=0.62)
-text(s, 0.8, 5.2, 11.7, 1.0, {"text": "Thank you — questions?", "size": 30, "bold": True, "color": NAVY},
-     align=PP_ALIGN.CENTER)
+# 6 compute time
+s = slide("GPU time")
+tm = [("DHSP", 16.22), ("Point2Mesh", 9.63), ("2DGS", 1.95), ("Others", 0.90)]
+pie(s, "Hours per method (28.7 h)", [t[0] for t in tm], [t[1] for t in tm], 0.3, 1.0, 4.7, 3.9, fmt='0.0')
+bt = [("DHSP", 133.9), ("2DGS", 47.1), ("Point2Mesh", 41.7), ("SAP", 7.8), ("MeshAnything", 1.3), ("Poisson", 0.6), ("IER", 0.5), ("NKSR", 0.1)]
+bars(s, "Best run on VGGSfM (minutes)", [b[0] for b in bt], [b[1] for b in bt], 5.1, 1.0, 4.6, 3.9)
+text(s, "One RTX 5000 Ada (32 GB). Others: SAP, MeshAnything, Poisson, IER, NKSR. DHSP includes its 3D and 2D stages. Not counted: failed attempts, e.g. a 15 h flattening run that never finished.",
+     0.42, 4.95, 9.2, 0.5, size=11)
 
-# ------------------------------------------------------------------ backup
-s = new_slide("Backup: metric definitions", "All computed against the input cloud P; mesh M sampled with 200k points",
-              section="Backup", notes="""
-Chamfer: average of the two one-sided mean distances, accuracy (mesh to points) and completeness (points to mesh),
-reported in percent of the bounding-box diagonal so the three inputs are comparable. F-score at threshold tau:
-precision is the fraction of mesh samples within tau of a point, recall the fraction of points within tau of the mesh.
-Normal consistency compares face normals with the input normals at the nearest point, absolute value so orientation
-does not matter. Texture PSNR samples the texture at the closest surface point of each input point.""")
-image(s, E_CD, 0.7, 1.6, 9.0, 0.8, align="left")
-image(s, E_F, 0.7, 2.75, 11.0, 0.75, align="left")
-image(s, E_NC, 0.7, 3.85, 7.0, 0.7, align="left")
-text(s, 0.7, 4.85, 12.0, 2.0, [
-    {"text": "τ = 1% (and 0.5%) of the bounding-box diagonal; CD reported as % of the diagonal", "size": 14, "b": True},
-    {"text": "PSNR: texture sampled at the closest surface point of each input point vs that point's RGB", "size": 14,
-     "b": True},
-    {"text": "Limitation: no ground-truth surface — metrics measure agreement with a noisy input, not truth", "size": 14,
-     "b": True}])
+# 7 results figure
+s = slide("Results (VGGSfM)")
+pic(s, F / "fig_grid_vggsfm.jpg", 0.42, 1.0, w=9.16, h=4.2)
 
-s = new_slide("Backup: runtime and memory (VGGSfM)", "One RTX 5000 Ada, 32 GB", section="Backup", notes="""
-Runtimes of the best runs. Poisson, NKSR, IER and MeshAnything take seconds to a minute. Point2Mesh, DHSP and 2DGS
-are per-shape optimisations and take tens of minutes to hours.""")
-rows = [["Method", "Run", "Faces", "Method time", "Peak GPU"]]
-for m in rm.ORDER:
-    r = rm.best(V, m)
-    base = rm.run(V, r["run"].replace("-phototex2", "")) or r
-    rows.append([rm.SHORT[m], base["run"], rm.fmt(base, "faces"), rm.fmt(base, "seconds"),
-                 f"{base['peak_gpu_mib'] / 1024:.1f} GB" if base.get("peak_gpu_mib") else "-"])
-table(s, 0.6, 1.5, 12.1, rows, col_w=[2.0, 5.2, 1.3, 1.6, 1.4], size=13, row_h=0.5)
-text(s, 0.6, 6.2, 12.1, 0.7, {"text": "DHSP: 3D prior ≈ 100 min + 2D pipeline ≈ 35 min; photo texturing adds 1-5 min per mesh",
-                              "size": 12.5, "color": GREY})
+# 8 results table VGGSfM
+COURSE, EXTRA = NAMES[:5], NAMES[5:]
+s = slide("Comparison (½)")
+legend(s)
+for k, (group, lab, y) in enumerate([(COURSE, "Course list", 1.0), (EXTRA, "Beyond the course list", 3.38)]):
+    rows = [["Method", "Faces", "Chamfer % ↓", "F@1% ↑", "F@0.5% ↑", "NC ↑", "Watertight", "Time ↓"]]
+    for m, n in group:
+        r = best("vggsfm", m)
+        rows.append([n, faces(r["faces_full"]), f"{r['chamfer_pct']:.3f}", f"{r['f1']:.3f}", f"{r['f05']:.3f}", f"{r['nc']:.2f}",
+                     "yes" if r["watertight"] else "no", dur(seconds("vggsfm", m))])
+    text(s, lab, 0.42, y, 4, 0.3, size=13)
+    table(s, rows, 0.42, y + 0.3, [1.85, 0.85, 1.3, 1.0, 1.15, 0.8, 1.1, 1.11], size=12, row_h=0.33,
+          fills=rank_fills(rows, {2: -1, 3: 1, 4: 1, 5: 1, 7: -1}))
+text(s, "VGGSfM input (138,677 points), best run per method.", 0.42, 5.08, 7, 0.3, size=11)
 
-s = new_slide("Backup: how the code is organised", section="Backup", notes="""
-Where things live, in case of questions about the code.""")
-tree = ("run_viewer.sh                one-command CPU viewer\n"
-        "results/                     packaged meshes per input (zip)\n"
-        "surface/inputs/              the three input clouds\n"
-        "surface/common/              io, knn, normals (PCA+MST), texture (xatlas bake),\n"
-        "                             phototex (photo projection), raster, render, metrics, finalize\n"
-        "surface/methods/poisson/     poisson.py  (our solver + marching tetrahedra)\n"
-        "surface/methods/<m>/         setup.sh · run.sh · pipeline.json   for ier, point2mesh,\n"
-        "                             meshanything, dhsp (+ run_2d.sh), nksr, sap, twodgs\n"
-        "surface/scripts/             node_run, queue, best_queue, extra_queue, finalize,\n"
-        "                             select_best, print_export, clean_cloud, package_results\n"
-        "surface/ui/                  server.py + web/ (dashboard, viewer, compare)\n"
-        "surface/docs/deliverables/   results.json → report, slides, figures")
-text(s, 0.6, 1.4, 12.2, 5.5, {"text": tree, "size": 14.5, "font": "Courier New", "color": INK}, spacing=1.15)
+# 9 results table MVS
+s = slide("Comparison (2/2)")
+legend(s)
+for k, (group, lab, y) in enumerate([(COURSE, "Course list", 0.98), (EXTRA, "Beyond the course list", 3.4)]):
+    rows = [["Method", "MVS (487,451 points)", "", "", "MVS-clean (487,047 points)", "", ""],
+            ["", "F@1% ↑", "Chamfer % ↓", "Time ↓", "F@1% ↑", "Chamfer % ↓", "Time ↓"]]
+    for m, n in group:
+        a, b = best("mvs", m), best("mvs_clean", m)
+        rows.append([n, f"{a['f1']:.3f}", f"{a['chamfer_pct']:.3f}", dur(seconds("mvs", m)),
+                     f"{b['f1']:.3f}", f"{b['chamfer_pct']:.3f}", dur(seconds("mvs_clean", m))])
+    text(s, lab, 0.42, y, 4, 0.3, size=13)
+    table(s, rows, 0.42, y + 0.28, [1.75, 1.15, 1.35, 1.0, 1.15, 1.35, 1.41], size=12, row_h=0.29,
+          fills=rank_fills(rows, {1: 1, 2: -1, 3: -1, 4: 1, 5: -1, 6: -1}, start=2), merge=[(0, 0, 1, 0), (0, 1, 0, 3), (0, 4, 0, 6)])
+
+# quality vs time and size (best run per method on VGGSfM)
+s = slide("Quality vs time and size")
+L = XL_LABEL_POSITION
+POS_T = {"poisson": L.ABOVE, "ier": L.BELOW, "point2mesh": L.RIGHT, "meshanything": L.BELOW, "dhsp": L.LEFT, "nksr": L.ABOVE,
+         "sap": L.ABOVE, "twodgs": L.LEFT}
+POS_F = {"poisson": L.ABOVE, "ier": L.ABOVE, "point2mesh": L.RIGHT, "meshanything": L.BELOW, "dhsp": L.RIGHT, "nksr": L.BELOW,
+         "sap": L.ABOVE, "twodgs": L.BELOW}
+short = lambda n: n.replace(" (ours)", "").replace(" V2", "").replace("*", "")
+scatter(s, "F@1% vs time", [(short(n), seconds("vggsfm", m), best("vggsfm", m)["f1"], POS_T[m]) for m, n in NAMES],
+        0.3, 0.95, 4.65, 4.2, "Time (s, log scale)", '#,##0', 1, 100000)
+scatter(s, "F@1% vs triangles", [(short(n), best("vggsfm", m)["faces_full"], best("vggsfm", m)["f1"], POS_F[m]) for m, n in NAMES],
+        5.05, 0.95, 4.65, 4.2, "Triangles (log scale)", '#,##0', 1000, 10000000)
+text(s, "VGGSfM input, best run per method. Higher is better; further left is faster (left chart) or lighter (right chart).", 0.42, 5.15, 7, 0.3, size=11)
+
+# 10 back view
+s = slide("Back view (VGGSfM)")
+pic(s, F / "fig_grid_vggsfm_back.jpg", 0.42, 1.1, w=9.16, h=4.0)
+
+# close-ups: same crop of every best mesh (shaded geometry) and of the input points
+CU = [("points", "Input points")] + NAMES
+for key, title, asp in (("face", "Close-up: face", 1.0), ("arms", "Close-up: crossed arms", 660 / 420), ("feet", "Close-up: feet", 690 / 360)):
+    s = slide(title)
+    cw, gap = 1.72, 0.14
+    ih = min(cw / asp, 1.62)
+    top = 1.0 + (3.95 - 2 * (ih + 0.32) - 0.12) / 2
+    for i, (m, n) in enumerate(CU):
+        row, col = (0, i) if i < 5 else (1, i - 5)
+        x0 = 0.42 + col * (cw + gap) + (0 if row == 0 else (cw + gap) / 2)
+        y0 = top + row * (ih + 0.44)
+        pic(s, A / "closeups" / f"{key}_{m}.jpg", x0, y0, w=cw, h=ih)
+        text(s, n, x0, y0 + ih + 0.02, cw, 0.28, size=11, align=PP_ALIGN.CENTER)
+    text(s, "Shaded geometry of the best VGGSfM run per method, same crop for all. Red: triangles seen from the back.", 0.42, 5.12, 8.6, 0.3, size=11)
+
+# 11-12 MVS figures
+s = slide("Results (MVS)")
+pic(s, F / "fig_grid_mvs.jpg", 0.42, 1.0, w=9.16, h=4.2)
+s = slide("Results (MVS-clean)")
+pic(s, F / "fig_grid_mvs_clean.jpg", 0.42, 1.0, w=9.16, h=4.2)
+
+# 13 Poisson
+s = slide("Poisson experiments")
+labelled_fig(s, "poisson", 0.42, 1.1, 5.35, 4.0, [("256³, no screening", "Chamfer 0.230%"), ("256³, screened", "Chamfer 0.179%"),
+                                               ("384³, screened", "Chamfer 0.149%"), ("384³, not trimmed", "Chamfer 0.154%")], size=10)
+rows = [["Run", "Faces", "F@1%", "Time"], ["256³, no screening", "265k", "0.990", "14 s"], ["256³, screened", "358k", "0.998", "17 s"],
+        ["384³, screened", "1.02M", "0.999", "39 s"], ["384³, not trimmed", "1.05M", "0.998", "25 s"]]
+table(s, rows, 5.85, 1.6, [1.75, 0.7, 0.7, 0.55], size=12, row_h=0.38, fills=rank_fills(rows, {2: 1, 3: -1}))
+legend(s)
+text(s, "Screened: surface pulled onto the points\nNo screening: follows point directions only\nTrimmed: parts far from points are cut off", 5.85, 3.75, 3.75, 0.9, size=11)
+
+# 14 MeshAnything
+s = slide("MeshAnything experiments")
+labelled_fig(s, "meshanything", 0.42, 1.05, 4.15, 4.1, [("raw points", "F@1% 0.508 · 1,802 faces"), ("Poisson mesh as input", "F@1% 0.987 · 1,435 faces")])
+rows = [["Input", "Model", "Decoding", "Faces", "F@1%", "Time"], ["raw points", "V2", "greedy", "624", "0.113", "92 s"],
+        ["raw points", "V2", "sampling", "1,802", "0.508", "77 s"], ["raw points", "V1", "greedy", "795", "0.442", "59 s"],
+        ["Poisson mesh", "V1", "greedy", "471", "0.929", "51 s"], ["Poisson mesh", "V2", "sampling", "2,058", "0.965", "95 s"],
+        ["Poisson mesh", "V2", "greedy", "1,435", "0.987", "77 s"]]
+legend(s)
+table(s, rows, 4.62, 1.3, [1.3, 0.74, 0.95, 0.68, 0.72, 0.6], size=12, row_h=0.4, fills=rank_fills(rows, {4: 1, 5: -1}),
+      align=[PP_ALIGN.LEFT, PP_ALIGN.LEFT, PP_ALIGN.LEFT, PP_ALIGN.RIGHT, PP_ALIGN.RIGHT, PP_ALIGN.RIGHT])
+
+# 15 Point2Mesh
+s = slide("Point2Mesh experiments")
+labelled_fig(s, "point2mesh", 0.42, 1.05, 4.95, 4.1, [("paper defaults", "F@1% 0.646"), ("unoriented", "F@1% 0.844"), ("MVS input", "F@1% 0.133"), ("MVS-clean", "F@1% 0.387")])
+rows = [["Run", "Faces", "F@1%", "Time"], ["first try", "16k", "0.602", "21 min"], ["paper defaults", "10k", "0.646", "44 min"],
+        ["+ unoriented", "10k", "0.844", "42 min"], ["+ unoriented, 20k", "20k", "0.655", "3.4 h"], ["MVS", "10k", "0.133", "40 min"],
+        ["MVS-clean", "10k", "0.387", "39 min"]]
+legend(s)
+table(s, rows, 5.55, 1.3, [1.7, 0.65, 0.7, 0.85], size=12, row_h=0.4, fills=rank_fills(rows, {2: 1, 3: -1}))
+
+# 16 DHSP
+s = slide("DHSP experiments")
+pic(s, A / "fig_dhsp_crop.jpg", 0.42, 1.1, w=4.7, h=4.0)
+rows = [["Run", "Faces", "F@1%", "NC", "Time"], ["3D prior only", "16k", "0.999", "0.65", dur(6360)],
+        ["full pipeline", "6k", "0.874", "0.89", dur(6360 + 8460)], ["full, extra smoothing", "6k", "0.901", "0.89", dur(DHSP_3D["vggsfm"] + DHSP_2D["vggsfm"])],
+        ["MVS, full", "6k", "0.900", "0.69", dur(seconds("mvs", "dhsp"))], ["MVS-clean, full", "6k", "0.916", "0.72", dur(seconds("mvs_clean", "dhsp"))]]
+legend(s)
+table(s, rows, 5.2, 1.4, [1.8, 0.7, 0.7, 0.55, 0.6], size=12, row_h=0.4, fills=rank_fills(rows, {2: 1, 3: 1, 4: -1}))
+text(s, "Full pipeline time = 3D stage + 2D stage.", 5.2, 3.95, 4.3, 0.3, size=11)
+
+# 17 IER
+s = slide("IER experiments")
+pic(s, A / "ier_textured.png", 0.42, 1.1, h=3.9)
+pic(s, A / "ier_shaded.png", 3.45, 1.1, h=3.9)
+rows = [["Input", "Faces", "F@1%", "Time"], ["VGGSfM", "17.5k", "0.998", "29 s"], ["MVS", "16.4k", "1.000", "42 s"], ["MVS-clean", "16.7k", "1.000", "50 s"]]
+legend(s)
+table(s, rows, 6.6, 1.5, [1.25, 0.75, 0.7, 0.6], size=12, row_h=0.4, fills=rank_fills(rows, {2: 1, 3: -1}))
+
+# 18 extra methods
+s = slide("NKSR, SAP and 2DGS")
+pic(s, F / "fig_extra.jpg", 0.42, 1.0, w=9.16, h=3.9)
+text(s, "NKSR: 2.09M faces in 7 s    SAP: 64k faces in 8 min    2DGS: 657k faces in 47 min", 0.42, 4.95, 9.2, 0.4, size=14, align=PP_ALIGN.CENTER)
+
+# 22 findings
+s = slide("Findings")
+text(s, "1.  Our own Poisson ties the best learned methods on VGGSfM (F@1% 0.999).\n"
+        "2.  NKSR is best on the dense MVS clouds (Chamfer 0.08%).\n"
+        "3.  A high score can hide a crumpled surface (DHSP 3D prior: F@1% 0.999, NC 0.65).\n"
+        "4.  The input matters: MeshAnything 0.51 → 0.987 with a mesh input;\n      Point2Mesh 0.13 → 0.39 after removing MVS floaters.\n"
+        "5.  Four methods give closed (watertight) meshes.", 0.42, 1.15, 9.2, 4.0, size=17)
+
+# the videos
+s = slide(number=False)
+text(s, "Let’s go through the videos!", 0.3, 2.2, 9.4, 1.0, size=40, color=BLACK, align=PP_ALIGN.CENTER)
+s = slide("Disclaimer")
+text(s, "The next seven videos took a lot of effort to make.\n\n"
+        "Every scene was planned, animated and checked against our own runs, so every number in them is a real result.\n\n"
+        "They explain each method step by step, which is why the slides before them skip formulas and methodology.",
+     0.42, 1.25, 9.0, 3.5, size=20)
+VIDEOS = [("Screened Poisson", ["v1_poisson"]), ("The metrics", ["v2_metrics"]), ("IER meshing", ["v3_ier_p1", "v3_ier_p2"]),
+          ("MeshAnything", ["v4_ma_p1", "v4_ma_p2"]), ("Point2Mesh", ["v5_p2m_p1", "v5_p2m_p2"]),
+          ("Deep Hybrid Self-Prior (DHSP)", ["v6_dhsp_p1", "v6_dhsp_p2"]), ("NKSR", ["v7_nksr"])]
+META = {f: json.load(open(A / f"meta_{f}.json")) for _, fs in VIDEOS for f in fs}
+mmss = lambda d: f"{int(d // 60)} min {int(round(d % 60))} s"
+for k, (name, fs) in enumerate(VIDEOS, 1):
+    s = slide(f"Video {k}: {name}")
+    if len(fs) == 1:
+        m = META[fs[0]]
+        px, py, pw, ph = pic(s, STILLS / f"{fs[0]}_00.jpg", 1.35, 1.0, w=7.3, h=4.1)
+        text(s, f"{mmss(m['duration'])}  ·  {len(m['parts'])} scenes", 0.42, py + ph + 0.05, 9.16, 0.35, size=14, align=PP_ALIGN.CENTER)
+    else:
+        for j, f in enumerate(fs):
+            m = META[f]
+            px, py, pw, ph = pic(s, STILLS / f"{f}_00.jpg", 0.42 + j * 4.66, 1.45, w=4.5, h=2.53)
+            text(s, f"Part {j + 1}  ·  {mmss(m['duration'])}  ·  {len(m['parts'])} scenes", px, py + ph + 0.08, pw, 0.35, size=14, align=PP_ALIGN.CENTER)
+    total = sum(META[f]["duration"] for f in fs)
+    if len(fs) > 1:
+        text(s, f"{mmss(total)} in total", 0.42, 4.55, 9.16, 0.35, size=12, align=PP_ALIGN.CENTER)
+
+# extras: one still per scene of each video (scenes about photo texturing left out)
+s = slide("Extras: stills from the videos")
+text(s, "One still per scene, in order, from the seven videos.", 0.42, 1.1, 9.2, 0.5, size=18)
+SKIP = {"v2_metrics": {11}, "v3_ier_p2": {4, 5}, "v4_ma_p2": {5}, "v6_dhsp_p2": {4}, "v7_nksr": {9}}
+for _, fs in VIDEOS:
+    for f in fs:
+        for i in range(len(META[f]["parts"])):
+            if i not in SKIP.get(f, ()):
+                s = slide(number=False)
+                s.shapes.add_picture(str(STILLS / f"{f}_{i:02d}.jpg"), 0, 0, prs.slide_width, prs.slide_height)
 
 prs.save(OUT)
-print("wrote", OUT, "slides:", len(prs.slides))
+print("saved", OUT, count[0], "slides")

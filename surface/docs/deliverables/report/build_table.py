@@ -51,9 +51,9 @@ Method & Faces & CD\,\%$\downarrow$ & F@1\%$\uparrow$ & F@0.5\%$\uparrow$ & NC$\
 """ + "\n".join(lines) + r"""
 \bottomrule
 \end{tabular}\\[2pt]
-\captionof{table}{Best run per method vs.\ its input cloud. CD: Chamfer-$L_1$, \% of bbox diagonal; F@$\tau$: F-score
-at $\tau$ of the diagonal; NC: normal consistency; WT: watertight (VGGSfM). $^\ast$\,Beyond the course list. DHSP: full
-pipeline""" + (
+\captionof{table}{Best run per method vs.\ its own input dots. CD: mean mesh--dot gap (Chamfer), \% of the scan's
+diagonal, lower is better; F@$\tau$: share within $\tau$ of each other, higher is better; NC: agreement of surface
+directions; WT: closed, printable. $^\ast$\,Beyond the course list""" + (
     r"; \pend\ = still training." if rm.pending_list() else ".") + r"""}
 \label{tab:results}}
 """

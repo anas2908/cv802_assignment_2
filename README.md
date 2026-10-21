@@ -1,8 +1,9 @@
 # Surface Extraction from a 3D Capture — CV802 Sub-project 2
 
 Coloured 3D point clouds of a person (from Sub-project 1: VGGSfM and COLMAP MVS) turned into **textured triangle
-meshes (`.obj`)** with eight surface-reconstruction methods, compared with the same metrics and browsable in a
-**3D web viewer** — side by side, textured, shaded or as wireframe.
+meshes (`.obj`)** with eight surface-reconstruction methods, compared with the same metrics and browsable in one
+**local web page**: the 3D viewer (every mesh and point cloud, side by side), the metric tables, the teaching films,
+the report and the slides.
 
 ## View the results (CPU only, about a minute)
 
@@ -12,10 +13,19 @@ cd cv802_assignment_2
 bash run_viewer.sh
 ```
 
-Needs only Python 3.8+ — nothing to install, no GPU. The viewer opens in your browser (the address is also printed);
-press `Ctrl-C` to stop. In the viewer choose a result, switch between *Textured / Shaded / Wireframe / Input points*,
-and use **Compare side by side**; the **Compare** page ranks all methods. Run names start with their input
-(`vggsfm__…`, `mvs__…`, `mvs_clean__…`).
+Needs only Python 3.8+ — nothing to install, no GPU, nothing is reconstructed: the meshes and point clouds ship with
+the repository. The page opens in your browser (the address is also printed, `http://127.0.0.1:<port>/hub/`); press
+`Ctrl-C` to stop. Five tabs:
+
+- **Viewer** — pick an input (VGGSfM, MVS, MVS cleaned) and a method; *Textured / Shaded*, wireframe and input-dot
+  overlays, dot size, front/back/side views, and a second method side by side with a draggable divider.
+- **Compare** — every method on every input (F-score / Chamfer), then all metrics per input; click a row to open it.
+- **Videos** — the twelve teaching topics (18 films); open a storyboard to step through one still per scene.
+- **Report** and **Slides** — the one-page report and the 130-slide deck, with PDF downloads.
+
+The earlier viewer is still there at `/viewer` (run names start with their input: `vggsfm__…`, `mvs__…`,
+`mvs_clean__…`) and the ranking page at `/compare`. The page loads three.js from the repository; only the web fonts
+come from the internet.
 
 ## Inputs
 
@@ -57,12 +67,17 @@ baked from the point colours.
 
 Cells: F-score at 1 % of the bounding-box diagonal ↑ / Chamfer-L1 as % of the diagonal ↓, best run per method, measured against that input point cloud. 🖨 = watertight (3D-printable). * = extra method beyond the course list.
 
-## Report and slides
+## Report, slides and films
 
 - One-page report (CVPR style): [`surface/docs/deliverables/CV802_SP2_one_page_report.pdf`](surface/docs/deliverables/CV802_SP2_one_page_report.pdf)
-- Presentation: [`surface/docs/deliverables/slides/CV802_SP2_surface_extraction.pptx`](surface/docs/deliverables/slides/CV802_SP2_surface_extraction.pptx)
-  ([PDF](surface/docs/deliverables/slides/CV802_SP2_surface_extraction.pdf))
-- Both are generated from the run metrics: `surface/docs/deliverables/build_all.sh`
+- Presentation, 130 slides: [`surface/docs/deliverables/slides/CV802_SP2_surface_extraction.pptx`](surface/docs/deliverables/slides/CV802_SP2_surface_extraction.pptx)
+  ([PDF](surface/docs/deliverables/slides/CV802_SP2_surface_extraction.pdf)) — methods, experiments, GPU time, result
+  tables with run times, quality vs time and size, close-ups of face, arms and feet, then the films and one still per
+  film scene.
+- Both are generated from the run metrics: `surface/docs/deliverables/build_all.sh` (report → `report/`, slides →
+  `slides/build_slides.py`; close-up renders: `make_closeups.py`).
+- Teaching films, 12 topics in 18 films (56 min): [`surface/docs/films/`](surface/docs/films/) — the film source with
+  the images each one shows; see its README for how to export MP4s.
 
 ## Experiments at a glance
 
@@ -88,7 +103,9 @@ surface/common/      I/O, kNN, normals, texture baking, photo texturing, metrics
 surface/methods/     one folder per method: setup.sh (environment, official code, weights), run.sh, pipeline.json
 surface/scripts/     job queue, finalize, cleanup, 3D-print export, packaging, results tables
 surface/ui/          dependency-free web server, dashboard, mesh viewer (three.js), compare page
-surface/docs/        brief, one-page summary, presentation notes
+surface/ui/hub/      the all-in-one page: viewer meshes and point clouds (.glbz), metrics, storyboards, report, slides;
+                     build_hub_data.py rebuilds its meshes from results/
+surface/docs/        brief, one-page summary, presentation notes; deliverables/ (report, slides, figures); films/
 ```
 
 ## Re-running the reconstructions

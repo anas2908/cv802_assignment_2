@@ -1,0 +1,515 @@
+<title>CV802 Surface Extraction</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Source+Sans+3:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: an app shell in the films' night-chalk look; a sticky bar with five tabs; the viewer is a sidebar + 3D stage. */
+:root {
+  --bg: #0E1420; --panel: #151D2C; --raise: #1B2536; --line: #2A3650; --fg: #ECF1F6; --muted: #9AA8BA;
+  --main: #58C4DD; --accent: #F2C14E; --stage: #0A0F18; --warn: #E8846B;
+  --display: "Crimson Pro", Georgia, "Times New Roman", serif;
+  --sans: "Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --bg: #F2F5F8; --panel: #FFFFFF; --raise: #EAF0F5; --line: #D2DCE6; --fg: #142030; --muted: #566779;
+  --main: #1B7898; --accent: #9C6A00; --stage: #E3EAF1; --warn: #B4492F; color-scheme: light } }
+:root[data-theme="light"] {
+  --bg: #F2F5F8; --panel: #FFFFFF; --raise: #EAF0F5; --line: #D2DCE6; --fg: #142030; --muted: #566779;
+  --main: #1B7898; --accent: #9C6A00; --stage: #E3EAF1; --warn: #B4492F; color-scheme: light }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.5 var(--sans); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--panel); }
+a { color: var(--main); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line); }
+header .in { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 28px; padding-block: 10px; }
+.brand { display: flex; flex-direction: column; min-width: 0; }
+.eyebrow { font: 500 11px/1.3 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+.brand b { font: 600 24px/1.1 var(--display); letter-spacing: .005em; }
+nav.tabs { display: flex; gap: 4px; overflow-x: auto; margin-left: auto; max-width: 100%; }
+nav.tabs a { flex: none; text-decoration: none; color: var(--muted); font-weight: 600; padding: 8px 14px; border-radius: 8px; border: 1px solid transparent; }
+nav.tabs a:hover { color: var(--fg); background: var(--raise); }
+nav.tabs a[aria-current="page"] { color: var(--fg); background: var(--raise); border-color: var(--line); }
+main section[hidden] { display: none !important; }
+main > section { padding-block: 20px 40px; }
+h1, h2 { font-family: var(--display); font-weight: 500; text-wrap: balance; margin: 0; }
+h2 { font-size: 30px; line-height: 1.15; }
+.lede { color: var(--muted); max-width: 70ch; margin: 6px 0 0; }
+.mono { font-family: var(--mono); }
+.num { font-variant-numeric: tabular-nums; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: var(--bg); flex-wrap: wrap; }
+.seg button { font: 600 13px var(--sans); color: var(--muted); background: transparent; border: 0; padding: 7px 12px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--raise); color: var(--fg); box-shadow: inset 0 -2px 0 var(--accent); }
+.btn { font: 600 13px var(--sans); color: var(--fg); background: var(--raise); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+.btn:hover { border-color: var(--main); }
+.btn.primary { background: var(--main); color: var(--bg); border-color: var(--main); }
+label.f { display: block; font: 600 12px var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
+select { width: 100%; font: 14px var(--sans); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.check { display: flex; align-items: center; gap: 8px; padding: 3px 0; cursor: pointer; }
+.check input { accent-color: var(--main); }
+
+/* viewer */
+.viewer { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 16px; align-items: start; }
+.side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+.stagebox { position: relative; height: min(78vh, 860px); min-height: 380px; border-radius: 12px; overflow: hidden; background: var(--stage); border: 1px solid var(--line); }
+.stagebox canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.paneLabel { position: absolute; top: 10px; font: 500 12px var(--mono); color: var(--fg); background: color-mix(in srgb, var(--panel) 82%, transparent); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.paneLabel.l { left: 10px; } .paneLabel.r { right: 10px; }
+.divider { position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: var(--line); }
+.toolbar { position: absolute; left: 10px; right: 10px; bottom: 10px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.toolbar .help { margin-left: auto; font-size: 12px; color: var(--muted); background: color-mix(in srgb, var(--panel) 80%, transparent); padding: 3px 8px; border-radius: 6px; }
+.status { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font: 500 13px var(--mono); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
+.metrics { width: 100%; border-collapse: collapse; font-size: 13px; }
+.metrics td { padding: 4px 0; border-bottom: 1px solid var(--line); }
+.metrics td:last-child { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.metrics tr.g td { color: var(--accent); font: 600 11px var(--sans); letter-spacing: .08em; text-transform: uppercase; border-bottom: 0; padding-top: 10px; }
+.pill { display: inline-block; font: 600 11px var(--sans); letter-spacing: .04em; padding: 2px 8px; border-radius: 99px; border: 1px solid currentColor; }
+.pill.closed { color: var(--main); } .pill.open { color: var(--muted); }
+.mname { font: 600 20px/1.2 var(--display); margin: 2px 0 2px; }
+.small { font-size: 12px; color: var(--muted); }
+
+/* compare */
+.cmp-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; justify-content: space-between; margin: 18px 0 10px; }
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+table.t { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.t th { text-align: left; font: 600 11px var(--sans); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); padding: 10px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.t td { padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+table.t tr:last-child td { border-bottom: 0; }
+table.t td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+table.t th.n { text-align: right; }
+table.t td.best { color: var(--accent); font-weight: 600; }
+table.t tbody tr.click { cursor: pointer; } table.t tbody tr.click:hover { background: var(--raise); }
+.thumb { width: 42px; height: 56px; object-fit: cover; border-radius: 6px; background: var(--stage); display: block; }
+.runid { font: 12px var(--mono); color: var(--muted); }
+
+/* videos */
+.vtotal { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-top: 12px; color: var(--muted); font-size: 14px; }
+.vtotal b { color: var(--fg); font: 600 22px var(--display); margin-right: 6px; }
+.vgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-top: 18px; }
+.vcard { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
+.vcard .img { aspect-ratio: 16 / 9; max-width: 100%; background: #F3F5F8; overflow: hidden; }
+.vcard .img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.vcard .body { padding: 14px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.vcard h3 { font: 600 22px/1.15 var(--display); margin: 0; }
+.vcard p { margin: 0; color: var(--muted); font-size: 14px; }
+.parts { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.parts li { display: flex; align-items: center; gap: 10px; justify-content: space-between; border-top: 1px solid var(--line); padding-top: 6px; }
+.parts .pn { min-width: 0; font-size: 14px; }
+.parts .len { font: 12px var(--mono); color: var(--muted); white-space: nowrap; }
+.soon { font: 12px var(--mono); color: var(--muted); white-space: nowrap; }
+a.btn { text-decoration: none; display: inline-flex; align-items: center; }
+/* storyboard: one still per scene of a film, stepped with the buttons or the arrow keys */
+.sb { position: fixed; inset: 0; z-index: 50; background: rgba(6, 10, 16, .94); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 16px; }
+.sb[hidden] { display: none; }
+.sb .frame { width: min(1280px, 100%, calc((100vh - 150px) * 16 / 9)); aspect-ratio: 16 / 9; background: #000; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.sb .frame img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.sb .cap { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: center; text-align: center; }
+.sb .cap b { font: 600 20px/1.2 var(--display); }
+.sb .cap span { font: 13px var(--mono); color: var(--muted); }
+.sb .nav { display: flex; gap: 8px; }
+
+/* report and slides */
+.docbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 14px 0; }
+.note { font-size: 13px; color: var(--muted); }
+.page { max-width: 1100px; background: #FFFFFF; border-radius: 6px; border: 1px solid var(--line); overflow: hidden; }
+.page img { display: block; width: 100%; }
+.slide { position: relative; max-width: 1100px; aspect-ratio: 16 / 9; background: #FFFFFF; border-radius: 8px; border: 1px solid var(--line); overflow: hidden; }
+.slide img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.snav { display: flex; gap: 8px; align-items: center; margin: 10px 0; max-width: 1100px; }
+.snav .count { font: 13px var(--mono); color: var(--muted); margin: 0 auto 0 4px; }
+.strip { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; max-width: 1100px; }
+.strip button { flex: none; width: 128px; aspect-ratio: 16 / 9; padding: 0; border: 2px solid var(--line); border-radius: 6px; overflow: hidden; background: #FFFFFF; cursor: pointer; }
+.strip button[aria-current="true"] { border-color: var(--accent); }
+.strip img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+@media (max-width: 860px) {
+  .viewer { grid-template-columns: minmax(0, 1fr); }
+  .stagebox { order: -1; height: 62vh; }
+  nav.tabs { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+<header class="bar"><div class="wrap in">
+  <div class="brand"><span class="eyebrow">CV802 · Sub-project 2</span><b>Surface extraction</b></div>
+  <nav class="tabs" aria-label="Sections">
+    <a href="#viewer" data-tab="viewer">Mesh viewer</a>
+    <a href="#compare" data-tab="compare">Compare</a>
+    <a href="#videos" data-tab="videos">Videos</a>
+    <a href="#report" data-tab="report">Report</a>
+    <a href="#slides" data-tab="slides">Slides</a>
+  </nav>
+</div></header>
+
+<main class="wrap">
+  <!-- MESH VIEWER -->
+  <section id="tab-viewer">
+    <div class="viewer">
+      <div class="side">
+        <div class="card">
+          <label class="f">Input point cloud</label>
+          <div class="seg" id="dsSeg" role="group" aria-label="Input point cloud"></div>
+          <p class="small" id="dsNote" style="margin:8px 0 0"></p>
+        </div>
+        <div class="card">
+          <label class="f" for="runA">Result</label>
+          <select id="runA"></select>
+          <label class="f" for="runB" style="margin-top:12px">Compare side by side with</label>
+          <select id="runB"></select>
+        </div>
+        <div class="card">
+          <label class="f">Display</label>
+          <label class="check"><input type="radio" name="mode" id="modeTex" value="textured" checked> Textured</label>
+          <label class="check"><input type="radio" name="mode" id="modeShade" value="shaded"> Shaded geometry</label>
+          <label class="check"><input type="checkbox" id="optWire"> Wireframe overlay</label>
+          <label class="check"><input type="checkbox" id="optPts"> Input dots overlay</label>
+          <label class="check"><input type="checkbox" id="optHide"> Hide mesh (dots only)</label>
+          <label class="f" for="ptSize" style="margin-top:10px">Dot size</label>
+          <input type="range" id="ptSize" min="1" max="6" step="0.5" value="2" style="width:100%">
+        </div>
+        <div class="card" id="info"></div>
+      </div>
+      <div class="stagebox" id="stage">
+        <canvas id="gl" aria-label="Interactive 3D view of the selected meshes"></canvas>
+        <div class="paneLabel l" id="labA"></div>
+        <div class="paneLabel r" id="labB" hidden></div>
+        <div class="divider" id="divider" hidden></div>
+        <div class="status" id="status">Loading the viewer…</div>
+        <div class="toolbar">
+          <button class="btn" data-view="front">Front</button><button class="btn" data-view="back">Back</button>
+          <button class="btn" data-view="left">Left</button><button class="btn" data-view="right">Right</button>
+          <button class="btn" data-view="top">Top</button>
+          <span class="help">Drag to turn · right-drag to pan · scroll or pinch to zoom · double-click to reset</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMPARE -->
+  <section id="tab-compare" hidden>
+    <h2>Every method on every input</h2>
+    <p class="lede">The best run of each method, measured against its own input dots. F-score at 1% of the bounding-box diagonal, then Chamfer as % of the diagonal (lower is better). Click a row to open it in the viewer.</p>
+    <div class="tablewrap" style="margin-top:14px"><table class="t" id="overview"></table></div>
+    <div class="cmp-head">
+      <div><h2 style="font-size:24px">All metrics</h2><p class="lede">Best value in each column in gold. Closed means every edge is shared by exactly two triangles (3D-printable).</p></div>
+      <div class="seg" id="cmpSeg" role="group" aria-label="Input for the metrics table"></div>
+    </div>
+    <div class="tablewrap"><table class="t" id="cmpTable"></table></div>
+  </section>
+
+  <!-- VIDEOS -->
+  <section id="tab-videos" hidden>
+    <h2>The teaching films</h2>
+    <p class="lede">The roadmap of Sub-project 2 as short films, in order. Open a storyboard to step through one still per scene; storyboards for videos 8 to 12 are still to be added. The films themselves are in <span class="mono">surface/docs/films/</span>.</p>
+    <div class="vtotal" id="vtotal"></div>
+    <div class="vgrid" id="vgrid"></div>
+  </section>
+
+  <!-- REPORT -->
+  <section id="tab-report" hidden>
+    <h2>One-page report</h2>
+    <p class="lede">CVPR-style, built by <span class="mono">build_all.sh</span> from the run metrics, so every number comes from <span class="mono">results.json</span>.</p>
+    <div class="docbar"><a class="btn primary" href="docs/report.pdf" download="CV802_SP2_one_page_report.pdf">Download PDF</a></div>
+    <div class="page"><img src="report/page-1.jpg" alt="The one-page report of Sub-project 2" loading="lazy"></div>
+  </section>
+
+  <!-- SLIDES -->
+  <section id="tab-slides" hidden>
+    <h2>Presentation</h2>
+    <p class="lede">130 slides: methods, experiments, GPU time, results, close-ups, the seven videos and one still per video scene. Use the arrow keys or the buttons to move through them. The editable PowerPoint file is in the repository at <span class="mono">surface/docs/deliverables/slides/</span>.</p>
+    <div class="docbar">
+      <a class="btn primary" href="docs/slides.pdf" download="CV802_SP2_surface_extraction.pdf">Download PDF</a>
+    </div>
+    <div class="slide"><img id="slideImg" src="slides/s-001.jpg" alt="Slide 1 of 130"></div>
+    <div class="snav"><button class="btn" id="prev" aria-label="Previous slide">← Previous</button><span class="count" id="scount">1 / 19</span><button class="btn" id="next" aria-label="Next slide">Next →</button></div>
+    <div class="strip" id="strip"></div>
+  </section>
+</main>
+
+<div class="sb" id="sb" hidden role="dialog" aria-modal="true" aria-label="Storyboard">
+  <div class="cap"><b id="sbTitle"></b><span id="sbScene"></span></div>
+  <div class="frame"><img id="sbImg" alt=""></div>
+  <div class="nav"><button class="btn" id="sbPrev">← Previous</button><button class="btn" id="sbNext">Next →</button><button class="btn" id="sbClose">Close</button></div>
+</div>
+
+<script>
+// ---------- shared data ----------
+const METHOD = { poisson: 'Screened Poisson', ier: 'IER meshing', point2mesh: 'Point2Mesh', meshanything: 'MeshAnything V2', dhsp: 'DHSP', nksr: 'NKSR', sap: 'Shape As Points', twodgs: '2D Gaussian Splatting' };
+const ORDER = ['poisson', 'ier', 'point2mesh', 'meshanything', 'dhsp', 'nksr', 'sap', 'twodgs'];
+const EXTRA = { nksr: 1, sap: 1, twodgs: 1 };
+const DS = [['vggsfm', 'VGGSfM'], ['mvs', 'MVS'], ['mvs_clean', 'MVS, cleaned']];
+const VIDEOS = [
+  [1, 'Screened Poisson', 'poisson', 'Our own screened Poisson: arrows on the dots, an inside-or-outside field, then the skin.', 'poisson', [['', 'v1_poisson', 189]]],
+  [2, 'The metrics', 'metrics', 'How to score a mesh with no ground truth: Chamfer, F-score, normals, colour, watertight.', 'metrics', [['', 'v2_metrics', 228]]],
+  [3, 'IER meshing', 'ier', 'Choosing good triangles among nearby dots, judged by a learned intrinsic-extrinsic ratio.', 'ier', [['Part 1 · choosing triangles', 'v3_ier_p1', 143], ['Part 2 · the network and the mesh', 'v3_ier_p2', 148]]],
+  [4, 'MeshAnything', 'meshanything', 'A transformer that writes a low-poly artist mesh, one triangle at a time.', 'meshanything', [['Part 1 · how it writes a mesh', 'v4_ma_p1', 202], ['Part 2 · training, our scan, our runs', 'v4_ma_p2', 182]]],
+  [5, 'Point2Mesh', 'point2mesh', 'Shrink-wrapping the dots with a mesh network trained on this scan only.', 'point2mesh', [['Part 1 · the idea', 'v5_p2m_p1', 188], ['Part 2 · our scan and our runs', 'v5_p2m_p2', 146]]],
+  [6, 'Deep Hybrid Self-Prior', 'dhsp', 'A 3D self-prior, then 2D image priors for the shape and for the colour.', 'dhsp', [['Part 1 · the method', 'v6_dhsp_p1', 172], ['Part 2 · our scan and our runs', 'v6_dhsp_p2', 174]]],
+  [7, 'NKSR', 'nksr', 'A learned kernel field, solved only close to the dots.', 'nksr', [['', 'v7_nksr', 246]]],
+  [8, 'Shape As Points', 'sap', 'Move the points, solve Poisson in one step, repeat: a differentiable Poisson solver.', 'sap', [['', null, 192]]],
+  [9, '2D Gaussian Splatting', '2dgs', 'Flat disks learned from the 125 photos, then fused into a mesh from their depth.', '2dgs', [['', null, 214]]],
+  [10, 'Photo texturing', 'texturing', 'Repainting every mesh from the photos instead of the dots.', 'texturing', [['', null, 174]]],
+  [11, 'The viewer and 3D printing', 'viewer', 'How the viewer works, and what a mesh needs before a printer will take it.', 'viewer_printing', [['Part 1 · the mesh viewer', null, 180], ['Part 2 · 3D printing', null, 218]]],
+  [12, 'The code pipeline', 'pipeline2', 'One run from start to finish, then how all 113 runs ran on one GPU.', 'pipeline', [['Part 1 · one run, start to finish', null, 174], ['Part 2 · running everything', null, 200]]],
+];
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmt = (v, d) => v == null ? '—' : Number(v).toFixed(d);
+const mmss = s => Math.floor(s / 60) + ' min ' + String(s % 60).padStart(2, '0') + ' s';
+const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+window.HUB = { data: null, ready: null };
+HUB.ready = fetch('data/results.json').then(r => r.json()).then(d => (HUB.data = d));
+
+// ---------- tabs ----------
+const TABS = ['viewer', 'compare', 'videos', 'report', 'slides'];
+function show(tab) {
+  if (!TABS.includes(tab)) tab = 'viewer';
+  TABS.forEach(t => { $('#tab-' + t).hidden = t !== tab; });
+  document.querySelectorAll('nav.tabs a').forEach(a => a.setAttribute('aria-current', a.dataset.tab === tab ? 'page' : 'false'));
+  store.set('hub-tab', tab);
+  window.dispatchEvent(new CustomEvent('hub-tab', { detail: tab }));
+}
+window.addEventListener('hashchange', () => show(location.hash.slice(1)));
+show(location.hash.slice(1) || store.get('hub-tab') || 'viewer');
+
+// ---------- videos ----------
+(function () {
+  let total = 0, parts = 0;
+  $('#vgrid').innerHTML = VIDEOS.map(([n, title, img, desc, folder, ps]) => {
+    ps.forEach(p => { total += p[2]; parts++; });
+    return '<article class="vcard"><div class="img"><img src="cards/' + img + '.jpg" alt="" loading="lazy"></div><div class="body">' +
+      '<span class="eyebrow">Video ' + n + '</span><h3>' + esc(title) + '</h3><p>' + esc(desc) + '</p><ul class="parts">' +
+      ps.map(([pn, id, s]) => '<li><span class="pn">' + esc(pn || 'Full film') + ' <span class="len">' + mmss(s) + '</span></span>' +
+        (id ? '<button class="btn" data-film="' + id + '" data-title="' + esc('Video ' + n + ': ' + title + (pn ? ' · ' + pn : '')) + '">Storyboard</button>' : '<span class="soon">to be added</span>') + '</li>').join('') +
+      '</ul></div></article>';
+  }).join('');
+  // storyboard player
+  const SB = { stills: null, list: [], i: 0 };
+  const stills = fetch('data/stills.json').then(r => r.json()).then(d => (SB.stills = d));
+  function sbGo(k) {
+    SB.i = Math.max(0, Math.min(SB.list.length - 1, k)); const s = SB.list[SB.i];
+    $('#sbImg').src = s.file; $('#sbImg').alt = s.label; $('#sbScene').textContent = 'scene ' + (SB.i + 1) + ' of ' + SB.list.length + ' · ' + s.label;
+    $('#sbPrev').disabled = SB.i === 0; $('#sbNext').disabled = SB.i === SB.list.length - 1;
+  }
+  function sbClose() { $('#sb').hidden = true; }
+  $('#vgrid').addEventListener('click', async e => {
+    const b = e.target.closest('button[data-film]'); if (!b) return;
+    await stills; SB.list = SB.stills[b.dataset.film] || []; if (!SB.list.length) return;
+    $('#sbTitle').textContent = b.dataset.title; $('#sb').hidden = false; sbGo(0); $('#sbNext').focus();
+  });
+  $('#sbPrev').onclick = () => sbGo(SB.i - 1); $('#sbNext').onclick = () => sbGo(SB.i + 1); $('#sbClose').onclick = sbClose;
+  $('#sb').addEventListener('click', e => { if (e.target.id === 'sb') sbClose(); });
+  document.addEventListener('keydown', e => { if ($('#sb').hidden) return; if (e.key === 'Escape') sbClose(); if (e.key === 'ArrowRight') sbGo(SB.i + 1); if (e.key === 'ArrowLeft') sbGo(SB.i - 1); });
+  $('#vtotal').innerHTML = '<span><b>' + VIDEOS.length + '</b>topics</span><span><b>' + parts + '</b>films</span><span><b>' + Math.round(total / 60) + '</b>minutes in all</span>';
+})();
+
+// ---------- report and slides ----------
+(function () {
+  const N = 130; let i = 0;
+  const strip = $('#strip');
+  strip.innerHTML = Array.from({ length: N }, (_, k) => '<button data-i="' + k + '" aria-label="Slide ' + (k + 1) + '"><img src="slides/s-' + String(k + 1).padStart(3, '0') + '.jpg" alt="" loading="lazy"></button>').join('');
+  function go(k) {
+    i = Math.max(0, Math.min(N - 1, k));
+    $('#slideImg').src = 'slides/s-' + String(i + 1).padStart(3, '0') + '.jpg'; $('#slideImg').alt = 'Slide ' + (i + 1) + ' of ' + N;
+    $('#scount').textContent = (i + 1) + ' / ' + N;
+    strip.querySelectorAll('button').forEach((b, k2) => b.setAttribute('aria-current', k2 === i ? 'true' : 'false'));
+  }
+  strip.addEventListener('click', e => { const b = e.target.closest('button'); if (b) go(+b.dataset.i); });
+  $('#prev').onclick = () => go(i - 1); $('#next').onclick = () => go(i + 1);
+  document.addEventListener('keydown', e => { if ($('#tab-slides').hidden || e.target.closest('input,select,textarea')) return; if (e.key === 'ArrowRight') go(i + 1); if (e.key === 'ArrowLeft') go(i - 1); });
+  go(0);
+})();
+
+// ---------- compare ----------
+HUB.ready.then(D => {
+  const ov = $('#overview');
+  const best = {}; DS.forEach(([k]) => { const rs = D[k].runs; best[k] = { f1: Math.max(...rs.map(r => r.f1)), cd: Math.min(...rs.map(r => r.chamfer_pct)) }; });
+  ov.innerHTML = '<thead><tr><th>Method</th>' + DS.map(([k, n]) => '<th class="n">' + n + ' <span class="runid">(' + D[k].n_points.toLocaleString() + ' dots)</span></th>').join('') + '</tr></thead><tbody>' +
+    ORDER.map(m => '<tr>' + '<td><b>' + METHOD[m] + '</b>' + (EXTRA[m] ? ' <span class="small">extra</span>' : '') + '</td>' + DS.map(([k]) => {
+      const r = D[k].runs.find(x => x.method_id === m); if (!r) return '<td class="n">—</td>';
+      return '<td class="n" data-ds="' + k + '" data-m="' + m + '" style="cursor:pointer" title="Open in the viewer"><span class="' + (r.f1 === best[k].f1 ? 'best' : '') + '">' + fmt(r.f1, 3) + '</span> / <span>' + fmt(r.chamfer_pct, 2) + '%</span>' + (r.watertight ? ' <span class="pill closed">closed</span>' : '') + '</td>';
+    }).join('') + '</tr>').join('') + '</tbody>';
+  ov.addEventListener('click', e => { const td = e.target.closest('td[data-ds]'); if (td) openRun(td.dataset.ds, td.dataset.m); });
+  const seg = $('#cmpSeg');
+  seg.innerHTML = DS.map(([k, n]) => '<button data-ds="' + k + '" aria-pressed="false">' + n + '</button>').join('');
+  const cols = [['chamfer_pct', 'Chamfer % ↓', 3, -1], ['f1', 'F@1% ↑', 3, 1], ['f05', 'F@0.5% ↑', 3, 1], ['nc', 'Normal cons. ↑', 3, 1], ['psnr', 'Colour PSNR ↑', 1, 1]];
+  function table(k) {
+    seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.ds === k ? 'true' : 'false'));
+    const rs = ORDER.map(m => D[k].runs.find(r => r.method_id === m)).filter(Boolean);
+    const bestv = {}; cols.forEach(([c, , , dir]) => { const vs = rs.map(r => r[c]).filter(v => v != null); bestv[c] = dir > 0 ? Math.max(...vs) : Math.min(...vs); });
+    $('#cmpTable').innerHTML = '<thead><tr><th></th><th>Method · run</th><th class="n">Triangles</th>' + cols.map(c => '<th class="n">' + c[1] + '</th>').join('') + '<th>Surface</th><th>Colour</th></tr></thead><tbody>' +
+      rs.map(r => '<tr class="click" data-m="' + r.method_id + '"><td><img class="thumb" src="' + r.thumb + '" alt="" loading="lazy"></td><td><b>' + METHOD[r.method_id] + '</b><div class="runid">' + esc(r.run) + '</div></td><td class="n">' + r.faces_full.toLocaleString() + '</td>' +
+        cols.map(([c, , d]) => '<td class="n' + (r[c] === bestv[c] ? ' best' : '') + '">' + fmt(r[c], d) + '</td>').join('') +
+        '<td>' + (r.watertight ? '<span class="pill closed">closed</span>' : '<span class="pill open">open · ' + (r.boundary_edges || 0).toLocaleString() + ' hole edges</span>') + '</td><td class="small">' + (/phototex/.test(r.run) ? 'photos' : 'dots') + '</td></tr>').join('') + '</tbody>';
+    store.set('hub-cmp', k);
+  }
+  seg.addEventListener('click', e => { const b = e.target.closest('button'); if (b) table(b.dataset.ds); });
+  $('#cmpTable').addEventListener('click', e => { const tr = e.target.closest('tr[data-m]'); if (tr) openRun(seg.querySelector('[aria-pressed="true"]').dataset.ds, tr.dataset.m); });
+  table(D[store.get('hub-cmp')] ? store.get('hub-cmp') : 'vggsfm');
+});
+function openRun(ds, m) { window.dispatchEvent(new CustomEvent('hub-open', { detail: { ds, m } })); location.hash = 'viewer'; }
+</script>
+
+<script type="importmap">
+{"imports": {"three": "/static/vendor/three-0.160.1/build/three.module.js", "three/addons/": "/static/vendor/three-0.160.1/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const $ = s => document.querySelector(s);
+const canvas = $('#gl'), stage = $('#stage');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.setScissorTest(true);
+const camera = new THREE.PerspectiveCamera(32, 1, 0.01, 100);
+const controls = new OrbitControls(camera, canvas); controls.enableDamping = true;
+const loader = new GLTFLoader();
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function scene() { const s = new THREE.Scene(); s.add(new THREE.HemisphereLight(0xffffff, 0x445066, 1.5)); const d = new THREE.DirectionalLight(0xffffff, 1.3); d.position.set(1.5, 2, 3); s.add(d); const d2 = new THREE.DirectionalLight(0xffffff, 0.5); d2.position.set(-2, 1, -2); s.add(d2); return s; }
+const panes = [{ scene: scene(), key: null, obj: null }, { scene: scene(), key: null, obj: null }];
+const cache = new Map(), ptsCache = new Map();
+const shadedMat = new THREE.MeshStandardMaterial({ color: 0xc8ccd2, roughness: 0.85, metalness: 0, side: THREE.DoubleSide });
+const wireMat = new THREE.LineBasicMaterial({ color: 0x63d6b5, transparent: true, opacity: 0.35 });
+const ptMat = new THREE.PointsMaterial({ size: 2, sizeAttenuation: false, vertexColors: true });
+let D = null, ds = 'vggsfm', bbox = null, ptObjs = [null, null];
+const status = m => { $('#status').textContent = m; $('#status').hidden = !m; };
+
+function resize() { const r = stage.getBoundingClientRect(); renderer.setSize(r.width, r.height, false); }
+new ResizeObserver(resize).observe(stage);
+
+function frame(view = 'front') {
+  if (!bbox) return;
+  const c = bbox.getCenter(new THREE.Vector3()), size = bbox.getSize(new THREE.Vector3()).length();
+  const dir = { front: [0, 0, 1], back: [0, 0, -1], left: [1, 0, 0], right: [-1, 0, 0], top: [0, 1, 0.02] }[view];
+  camera.up.set(...(view === 'top' ? [0, 0, -1] : [0, 1, 0]));
+  camera.position.copy(c).addScaledVector(new THREE.Vector3(...dir).normalize(), size * 1.9);
+  camera.near = size / 100; camera.far = size * 30; camera.updateProjectionMatrix();
+  controls.target.copy(c); controls.update();
+}
+document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => frame(b.dataset.view)));
+canvas.addEventListener('dblclick', () => frame('front'));
+
+function run(dsk, m) { return D[dsk].runs.find(r => r.method_id === m); }
+// each model is stored as a gzip-compressed GLB (.glbz); unpack it in the browser
+async function fetchGLB(file, label) {
+  const res = await fetch(file.replace(/\.glb$/, '.glbz'));
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const total = +res.headers.get('content-length') || 0, reader = res.body.getReader(), chunks = []; let got = 0;
+  for (;;) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); got += value.length; status('Loading ' + label + (total ? ' · ' + Math.round(100 * got / total) + '%' : ' · ' + (got / 1e6).toFixed(1) + ' MB')); }
+  const glb = await new Response(new Blob(chunks).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+  return new Promise((ok, bad) => loader.parse(glb, '', ok, bad));
+}
+function load(dsk, m) {
+  const key = dsk + '/' + m; if (cache.has(key)) return cache.get(key);
+  const r = run(dsk, m);
+  const p = fetchGLB(r.file, window.HUBNAME[m] || m).then(g => {
+    const grp = g.scene, meshes = [];
+    grp.traverse(o => { if (o.isMesh) { o.material.side = THREE.DoubleSide; o.userData.tex = o.material; meshes.push(o); } });
+    grp.userData.meshes = meshes; return grp;
+  });
+  cache.set(key, p); p.catch(() => cache.delete(key)); return p;
+}
+function loadPoints(dsk) {
+  if (ptsCache.has(dsk)) return ptsCache.get(dsk);
+  const p = fetchGLB(D[dsk].points, 'the input dots').then(g => {
+    let geo = null; g.scene.traverse(o => { if (o.isPoints) geo = o.geometry; });
+    const c = geo.getAttribute('color'), out = new Float32Array(c.count * 3), col = new THREE.Color();
+    for (let i = 0; i < c.count; i++) { col.setRGB(c.getX(i), c.getY(i), c.getZ(i), THREE.SRGBColorSpace); out[3 * i] = col.r; out[3 * i + 1] = col.g; out[3 * i + 2] = col.b; }
+    geo.setAttribute('color', new THREE.BufferAttribute(out, 3)); return geo;
+  });
+  ptsCache.set(dsk, p); p.catch(() => ptsCache.delete(dsk)); return p;
+}
+
+function applyMode() {
+  const shaded = $('#modeShade').checked, wire = $('#optWire').checked, hide = $('#optHide').checked;
+  panes.forEach(p => {
+    if (!p.obj) return;
+    p.obj.userData.meshes.forEach(o => {
+      o.material = shaded ? shadedMat : o.userData.tex; o.visible = !hide;
+      if (wire && !o.userData.wire) { const w = new THREE.LineSegments(new THREE.WireframeGeometry(o.geometry), wireMat); o.add(w); o.userData.wire = w; }
+      if (o.userData.wire) o.userData.wire.visible = wire && !hide;
+    });
+  });
+}
+async function applyPoints() {
+  const on = $('#optPts').checked || $('#optHide').checked;
+  ptObjs.forEach((o, i) => { if (o) panes[i].scene.remove(o); }); ptObjs = [null, null];
+  if (!on) return;
+  try { const geo = await loadPoints(ds); ptObjs = panes.map(p => { const o = new THREE.Points(geo, ptMat); p.scene.add(o); return o; }); status(''); }
+  catch (e) { status('Could not load the input dots. Check the connection and try again.'); }
+}
+['#modeTex', '#modeShade', '#optWire'].forEach(s => $(s).addEventListener('change', applyMode));
+['#optPts', '#optHide'].forEach(s => $(s).addEventListener('change', () => { applyMode(); applyPoints(); }));
+$('#ptSize').addEventListener('input', e => { ptMat.size = +e.target.value; });
+
+async function setPane(i, m) {
+  const p = panes[i]; if (p.obj) { p.scene.remove(p.obj); p.obj = null; } p.key = m ? ds + '/' + m : null;
+  if (!m) return null;
+  const want = p.key, g = await load(ds, m);
+  if (p.key !== want) return null;
+  p.obj = g; p.scene.add(g); return g;
+}
+function info(r) {
+  const row = (a, b) => '<tr><td>' + a + '</td><td>' + b + '</td></tr>', grp = a => '<tr class="g"><td colspan="2">' + a + '</td></tr>';
+  $('#info').innerHTML = '<span class="eyebrow">' + D[ds].label + '</span><div class="mname">' + (r.method || r.method_id).replace(/ \+ photo texture$/, '') + '</div><div class="runid">' + r.run + '</div>' +
+    '<p class="small" style="margin:6px 0 0">' + (r.paper || '') + '</p><table class="metrics">' +
+    grp('Geometry') + row('Chamfer, % of diagonal ↓', r.chamfer_pct.toFixed(3)) + row('F-score at 1% ↑', r.f1.toFixed(3)) + row('F-score at 0.5% ↑', r.f05.toFixed(3)) + row('Normal consistency ↑', r.nc.toFixed(3)) +
+    grp('Mesh') + row('Triangles (full / shown)', r.faces_full.toLocaleString() + ' / ' + r.faces_view.toLocaleString()) + row('Surface', r.watertight ? '<span class="pill closed">closed</span>' : '<span class="pill open">open</span>') +
+    row('Hole edges', (r.boundary_edges ?? 0).toLocaleString()) + row('Separate pieces', (r.components ?? 1).toLocaleString()) +
+    grp('Colour') + row('Texture from', /phototex/.test(r.run) ? 'the 125 photos' : 'the dots') + row('Colour PSNR vs dots ↑', r.psnr == null ? '—' : r.psnr.toFixed(1) + ' dB') +
+    (r.seconds != null ? grp('Time') + row('Method run time', Math.round(r.seconds).toLocaleString() + ' s') : '') + '</table>';
+}
+async function select(resetView) {
+  const a = $('#runA').value, b = $('#runB').value;
+  try {
+    status('Loading ' + (run(ds, a).method || a) + '…');
+    const [ga] = await Promise.all([setPane(0, a), setPane(1, b || null)]);
+    applyMode(); await applyPoints();
+    info(run(ds, a));
+    $('#labA').textContent = (b ? 'A · ' : '') + run(ds, a).run; $('#labB').hidden = $('#divider').hidden = !b; if (b) $('#labB').textContent = 'B · ' + run(ds, b).run;
+    if (ga && (resetView || !bbox)) { bbox = new THREE.Box3().setFromObject(ga); frame('front'); }
+    status('');
+  } catch (e) { status('Could not load this mesh. Check the connection and pick it again.'); }
+  try { localStorage.setItem('hub-view', JSON.stringify({ ds, a, b })); } catch (e) {}
+}
+function fillSelects(a, b) {
+  const opts = window.HUBORDER.map(m => { const r = run(ds, m); return r ? '<option value="' + m + '">' + window.HUBNAME[m] + ' · F@1% ' + r.f1.toFixed(3) + '</option>' : ''; }).join('');
+  $('#runA').innerHTML = opts; $('#runB').innerHTML = '<option value="">None</option>' + opts;
+  $('#runA').value = run(ds, a) ? a : 'poisson'; $('#runB').value = b && run(ds, b) ? b : '';
+}
+function setDs(k, a, b, reset = true) {
+  ds = k; document.querySelectorAll('#dsSeg button').forEach(x => x.setAttribute('aria-pressed', x.dataset.ds === k ? 'true' : 'false'));
+  $('#dsNote').textContent = D[k].n_points.toLocaleString() + ' dots' + (D[k].n_points_shown < D[k].n_points ? ' (' + D[k].n_points_shown.toLocaleString() + ' shown in the overlay)' : '') + '. Meshes shown at up to 200,000 triangles; metrics are for the full meshes.';
+  fillSelects(a ?? $('#runA').value, b ?? $('#runB').value); select(reset);
+}
+window.HUBORDER = ['poisson', 'ier', 'point2mesh', 'meshanything', 'dhsp', 'nksr', 'sap', 'twodgs'];
+window.HUBNAME = { poisson: 'Screened Poisson', ier: 'IER meshing', point2mesh: 'Point2Mesh', meshanything: 'MeshAnything V2', dhsp: 'DHSP', nksr: 'NKSR', sap: 'Shape As Points', twodgs: '2D Gaussian Splatting' };
+
+function render() {
+  requestAnimationFrame(render);
+  if (document.getElementById('tab-viewer').hidden) return;
+  controls.update();
+  const w = canvas.clientWidth, h = canvas.clientHeight; if (!w || !h) return;
+  const split = !!panes[1].obj, pw = split ? Math.floor(w / 2) : w;
+  camera.aspect = pw / h; camera.updateProjectionMatrix();
+  const bg = new THREE.Color(css('--stage') || '#0A0F18');
+  [0, 1].forEach(i => { if (i === 1 && !split) return; renderer.setViewport(i * pw, 0, pw, h); renderer.setScissor(i * pw, 0, pw, h); renderer.setClearColor(bg); renderer.render(panes[i].scene, camera); });
+}
+
+window.HUB.ready.then(d => {
+  D = d;
+  $('#dsSeg').innerHTML = [['vggsfm', 'VGGSfM'], ['mvs', 'MVS'], ['mvs_clean', 'MVS, cleaned']].map(([k, n]) => '<button data-ds="' + k + '" aria-pressed="false">' + n + '</button>').join('');
+  $('#dsSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.dataset.ds !== ds) setDs(b.dataset.ds); });
+  $('#runA').addEventListener('change', () => select(false)); $('#runB').addEventListener('change', () => select(false));
+  window.addEventListener('hub-open', e => { setDs(e.detail.ds, e.detail.m, '', true); });
+  let saved = null; try { saved = JSON.parse(localStorage.getItem('hub-view') || 'null'); } catch (e) {}
+  if (saved && D[saved.ds]) setDs(saved.ds, saved.a, saved.b); else setDs('vggsfm', 'poisson', '');
+  resize(); render();
+}).catch(() => status('Could not load the results list. Reload the page to try again.'));
+</script>

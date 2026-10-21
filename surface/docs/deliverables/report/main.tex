@@ -25,48 +25,44 @@
 \maketitle\vspace{-34pt}
 \begin{center}
 \includegraphics[width=0.93\textwidth]{../figs/fig_strip_vggsfm.jpg}\\[-2pt]
-\captionof{figure}{Best mesh per method on VGGSfM: \emph{textured} (our photo projection) | \emph{shaded}. Red
-faces are back-facing (inconsistent orientation).}
+\captionof{figure}{Best mesh per method on VGGSfM: \emph{textured} and \emph{shaded}. Red: triangles seen from the back.}
 \label{fig:teaser}\vspace{2pt}
 \input{table.tex}
 \end{center}\vspace{-4pt}}]
 \thispagestyle{empty}
 
-\section{Task and inputs}
-We turn coloured points from Sub-project 1 into textured \texttt{.obj} meshes with eight methods and our own
-photo texturing, browsable side by side in our three.js mesh viewer (bonus; \texttt{run\_viewer.sh}, CPU only). Inputs are the light-shirt capture as a VGGSfM cloud (139k points, cleaned with person masks; main input), a COLMAP
-MVS cloud (487k points, with normals), and the MVS cloud with 404 floating outliers removed (MVS-clean). A shared finalizer adds UV atlas, texture, metrics and renders to every mesh.
+\section{What we did}
+Sub-project 1 gave us coloured dots on a person in a light shirt. We turn them into textured 3D meshes
+(\texttt{.obj}) in eight ways, on three versions of the scan: VGGSfM (139k dots, cleaned with the person's
+outline in the photos; main input), the denser COLMAP MVS (487k), and MVS with 404 stray floating dots removed
+(MVS-clean). A shared last step adds texture, scores and
+previews, and our web viewer (\texttt{run\_viewer.sh}, no GPU) shows them side by side.
 
-\section{Method}
-\paragraph{Screened Poisson (ours, no API).}
-Normals: PCA on 24 neighbours, oriented along a minimum spanning tree (cost
-$1-|\mathbf n_i\!\cdot\!\mathbf n_j|$), flipped outward per component. Inward normals are splatted into a field $\mathbf V$ on a $384^3$ grid, and the
-indicator $\chi$ solves
-\begin{equation}
-\big(-\Delta + \beta S^{\top}WS\big)\chi = -\nabla\!\cdot\mathbf V + \beta S^{\top}W c,
-\end{equation}
-where $S$ samples $\chi$ at the points and the screening term pins it to the iso-value $c$. We use
-Jacobi-preconditioned CG, coarse to fine ($96^3\!\rightarrow\!384^3$), our own marching tetrahedra (crack-free), and
-trim faces more than two voxels from the data: 1.0\,M faces in 39\,s.
+\section{How}
+\paragraph{Our own Poisson (no library).}
+Each dot gets an outward arrow from its 24 nearest neighbours, made consistent
+across the body. The arrows $\mathbf V$ define an inside-or-outside function $\chi$ on a $384^3$ grid whose slope
+matches them ($\Delta\chi=\nabla\!\cdot\mathbf V$), plus a pull that keeps the surface on the dots. Its boundary becomes
+triangles, and parts far from any dot are trimmed: 1.0\,M triangles in 39\,s.
 
 \paragraph{Making the course methods work on a real scan.}
-\textbf{IER}: points farthest-point sampled to its training density (12.5k). \textbf{MeshAnything V2}: raw points
-give F@1\%\,0.51; our Poisson mesh fed through the authors' marching-cubes input path gives 0.987.
-\textbf{Point2Mesh}: the paper's \texttt{--unoriented} loss, 0.65$\rightarrow$0.84. \textbf{DHSP}: the 3D prior is
-crumpled (NC 0.65) and OptCuts did not converge in 15\,h. Re-meshing first (3k/6k faces) makes OptCuts converge in
-seconds, so the full pipeline (2D geometry prior, refinement, 2D texture prior) completes: NC\,0.89, own colour.
+\textbf{IER} gets 12.5k evenly spread dots, the density it was trained on. \textbf{MeshAnything V2} learned from clean
+meshes: raw dots give F@1\%\,0.51, our Poisson mesh via its authors' preparation step 0.987.
+\textbf{Point2Mesh} was misled by the direction of our noisy arrows; the paper's option to ignore it lifts F@1\% from
+0.65 to 0.84. \textbf{DHSP} first fits the dots but crumples the surface
+(NC\,0.65), and its next step (flattening the surface into an image) stalled for 15\,h. Rebuilding a clean,
+simpler surface first (3k/6k triangles) lets it finish in seconds: smooth (NC\,0.89), with its own colours.
 
-\paragraph{Extra methods and texture.} NKSR, Shape As Points and 2DGS (masked photos, TSDF mesh).
-Shape-only meshes get an xatlas atlas; each texel is rasterised to a surface point and coloured from the photos with
-COLMAP cameras, z-buffer visibility, person masks, weight $(\cos^4\theta\,(d/z)^2)^{8}$ and per-photo exposure gain
-($4096^2$). Metrics (Tab.~\ref{tab:results}) compare each mesh with its input cloud.
+\paragraph{Three more methods.}
+NKSR (a learned field built for real scans), Shape As Points (Poisson made trainable) and 2D Gaussian Splatting
+(learned from the 125 photos). With no true 3D model, Table~\ref{tab:results} scores each mesh against its own input
+dots.
 
-\section{Findings}
-\textbf{(1)} Careful classical code is competitive: our Poisson ties the best learned methods on VGGSfM; NKSR wins
-on dense MVS. \textbf{(2)} Point scores hide surface quality: DHSP's prior has F@1\%\,0.999 but is crumpled; IER's
-winding is inconsistent. \textbf{(3)} Input domain and outliers dominate: MeshAnything needs
-mesh-like input; Point2Mesh collapses on raw MVS (0.13) and recovers after floater removal (0.39).
-\textbf{(4)} Photo texture is far sharper than point colours. \textbf{(5)} SAP, DHSP and Point2Mesh are
-watertight and exported as 180\,mm STL.
+\section{What we learned}
+\textbf{(1) Classic code holds up:} our Poisson ties the best learned methods on VGGSfM; NKSR wins on the denser MVS.
+\textbf{(2) Close to the dots is not a good surface:} DHSP's first stage scores F@1\%\,0.999 yet is crumpled, and
+IER's triangles disagree about which side is out (red in Fig.~\ref{fig:teaser}). \textbf{(3) The input matters
+most:} MeshAnything needs mesh-like input; Point2Mesh falls apart on MVS with its stray dots (F@1\%\,0.13) and partly
+recovers without them (0.39). \textbf{(4) Closed meshes print:} SAP, DHSP, Point2Mesh and our untrimmed Poisson are watertight, exported as 180\,mm STL files.
 
 \end{document}
